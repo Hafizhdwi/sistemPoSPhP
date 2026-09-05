@@ -1,0 +1,37 @@
+# ============================================
+# .gitignore untuk Mini PoS (PHP Native)
+# ============================================
+
+# File konfigurasi sensitif (opsional, aktifkan jika perlu)
+# config/database.php
+
+# File log
+*.log
+
+# File sistem Windows
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# File sistem Linux
+*~
+
+# Folder vendor (jika pakai Composer)
+/vendor/
+
+# File cache
+/cache/
+/tmp/
+
+# File IDE
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# File generate hash (PENTING: jangan upload!)
+generate_hash.php
+
+# File backup
+*.bak
+*.sql.gz
