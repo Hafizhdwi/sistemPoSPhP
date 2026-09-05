@@ -2,7 +2,6 @@
 require_once 'config/database.php';
 requireAdmin();
 
-// Handle Delete
 if (isset($_GET['delete'])) {
     $stmt = $pdo->prepare("DELETE FROM products WHERE id = ?");
     $stmt->execute([$_GET['delete']]);
@@ -49,6 +48,7 @@ $activeTab = $_GET['tab'] ?? 'products';
             <div class="role"><?= $_SESSION['role'] ?></div>
         </div>
         <nav>
+            <a href="dashboard.php" class="nav-link">📊 Dashboard</a>
             <a href="index.php" class="nav-link">🛒 Kasir</a>
             <a href="products.php" class="nav-link active">📦 Produk</a>
             <a href="history.php" class="nav-link">📜 Riwayat</a>
@@ -68,7 +68,6 @@ $activeTab = $_GET['tab'] ?? 'products';
             <span style="width:30px;"></span>
         </div>
 
-        <!-- Alerts -->
         <?php
         $alerts = [
             'added' => ['success', '✅ Produk berhasil ditambahkan!'],
@@ -98,12 +97,9 @@ $activeTab = $_GET['tab'] ?? 'products';
         <!-- ==================== TAB: DAFTAR PRODUK ==================== -->
         <?php if ($activeTab === 'products'): ?>
             <div class="row g-4">
-                <!-- Form Tambah / Edit -->
                 <div class="col-12 col-lg-4">
                     <div class="card">
-                        <div class="card-header">
-                            <?= $editProduct ? '✏️ Edit Produk' : '➕ Tambah Produk Baru' ?>
-                        </div>
+                        <div class="card-header"><?= $editProduct ? '✏️ Edit Produk' : '➕ Tambah Produk Baru' ?></div>
                         <div class="card-body p-3 p-md-4">
                             <form action="process_product.php" method="POST">
                                 <input type="hidden" name="action" value="<?= $editProduct ? 'update' : 'create' ?>">
@@ -131,9 +127,7 @@ $activeTab = $_GET['tab'] ?? 'products';
                                     <div class="mb-4">
                                         <label class="form-label fw-semibold small text-muted">Stok Saat Ini</label>
                                         <input type="number" class="form-control form-control-lg" value="<?= $editProduct['stock'] ?>" disabled>
-                                        <small class="text-muted mt-1 d-block">
-                                            💡 Untuk mengubah stok, gunakan tombol <strong>📊 Stok</strong> di tabel.
-                                        </small>
+                                        <small class="text-muted mt-1 d-block">💡 Untuk mengubah stok, gunakan tombol 📊 di tabel.</small>
                                     </div>
                                 <?php endif; ?>
 
@@ -150,7 +144,6 @@ $activeTab = $_GET['tab'] ?? 'products';
                     </div>
                 </div>
 
-                <!-- Tabel Produk -->
                 <div class="col-12 col-lg-8">
                     <div class="card">
                         <div class="card-header d-flex justify-content-between align-items-center">
@@ -180,17 +173,14 @@ $activeTab = $_GET['tab'] ?? 'products';
                                                 </td>
                                                 <td class="text-center">
                                                     <div class="btn-group btn-group-sm">
-                                                        <!-- ✅ BARU: Tombol Edit Stok -->
                                                         <button class="btn btn-outline-success px-2 px-md-3"
                                                             onclick="openStockModal(<?= $p['id'] ?>, '<?= addslashes($p['name']) ?>', <?= $p['stock'] ?>)"
-                                                            title="Edit Stok">
-                                                            📊
-                                                        </button>
+                                                            title="Edit Stok">📊</button>
                                                         <a href="products.php?tab=products&edit=<?= $p['id'] ?>"
                                                             class="btn btn-outline-primary px-2 px-md-3" title="Edit Produk">✏️</a>
                                                         <a href="products.php?delete=<?= $p['id'] ?>"
                                                             class="btn btn-outline-danger px-2 px-md-3"
-                                                            onclick="return confirm('Yakin hapus produk ini?')" title="Hapus">🗑️</a>
+                                                            onclick="return confirm('Yakin hapus?')" title="Hapus">🗑️</a>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -221,15 +211,12 @@ $activeTab = $_GET['tab'] ?? 'products';
                         <div class="card-body p-3 p-md-4">
                             <form action="process_product.php" method="POST">
                                 <input type="hidden" name="action" value="restock">
-
                                 <div class="mb-3">
                                     <label class="form-label fw-semibold small text-muted">Pilih Produk</label>
                                     <select name="product_id" class="form-select form-select-lg" required>
                                         <option value="">-- Pilih Produk --</option>
                                         <?php foreach ($products as $p): ?>
-                                            <option value="<?= $p['id'] ?>">
-                                                <?= htmlspecialchars($p['name']) ?> (Stok: <?= $p['stock'] ?>)
-                                            </option>
+                                            <option value="<?= $p['id'] ?>"><?= htmlspecialchars($p['name']) ?> (Stok: <?= $p['stock'] ?>)</option>
                                         <?php endforeach; ?>
                                     </select>
                                 </div>
@@ -246,21 +233,13 @@ $activeTab = $_GET['tab'] ?? 'products';
                         </div>
                     </div>
                 </div>
-
                 <div class="col-12 col-lg-7">
                     <div class="card h-100">
                         <div class="card-header">ℹ️ Panduan Restock</div>
                         <div class="card-body d-flex flex-column justify-content-center align-items-center text-center p-4 p-md-5">
                             <div style="font-size:4rem; opacity:0.3;">📥</div>
                             <h5 class="fw-bold mt-3">Cara Restock</h5>
-                            <p class="text-muted">
-                                Pilih produk yang ingin ditambah stoknya, masukkan jumlah barang masuk,
-                                dan tambahkan catatan referensi. Setiap restock akan tercatat otomatis
-                                di tab <strong>Mutasi Stok</strong>.
-                            </p>
-                            <div class="alert alert-info border-0 w-100 text-start small">
-                                💡 <strong>Tip:</strong> Untuk penyesuaian stok (koreksi), gunakan tombol <strong>📊 Stok</strong> di daftar produk.
-                            </div>
+                            <p class="text-muted">Pilih produk, masukkan jumlah masuk, dan catatan. Setiap restock tercatat di Mutasi Stok.</p>
                         </div>
                     </div>
                 </div>
@@ -328,7 +307,7 @@ $activeTab = $_GET['tab'] ?? 'products';
         <?php endif; ?>
     </div>
 
-    <!-- ==================== MODAL EDIT STOK ==================== -->
+    <!-- MODAL EDIT STOK -->
     <div class="modal fade" id="stockModal" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content border-0" style="border-radius:16px; overflow:hidden;">
@@ -340,32 +319,27 @@ $activeTab = $_GET['tab'] ?? 'products';
                     <form action="process_product.php" method="POST" id="stockForm">
                         <input type="hidden" name="action" value="adjust_stock">
                         <input type="hidden" name="product_id" id="modalProductId">
-
                         <div class="mb-3">
                             <label class="form-label fw-semibold small text-muted">Produk</label>
                             <input type="text" class="form-control" id="modalProductName" disabled>
                         </div>
-
                         <div class="mb-3">
                             <label class="form-label fw-semibold small text-muted">Stok Saat Ini</label>
                             <input type="number" class="form-control" id="modalCurrentStock" disabled>
                         </div>
-
                         <div class="mb-3">
                             <label class="form-label fw-semibold small text-muted">Stok Baru <span class="text-danger">*</span></label>
                             <input type="number" name="new_stock" class="form-control form-control-lg fw-bold"
                                 id="modalNewStock" required min="0" placeholder="0">
                             <small class="text-muted" id="stockDiff"></small>
                         </div>
-
                         <div class="mb-3">
                             <label class="form-label fw-semibold small text-muted">Catatan Penyesuaian</label>
                             <textarea name="notes" class="form-control" rows="2"
                                 placeholder="Contoh: Stok opname, barang rusak, koreksi data"></textarea>
                         </div>
-
                         <div class="alert alert-warning border-0 small mb-0">
-                            ⚠️ Perubahan stok akan tercatat di <strong>Mutasi Stok</strong> sebagai penyesuaian (adjustment).
+                            ⚠️ Perubahan stok akan tercatat di Mutasi Stok sebagai penyesuaian.
                         </div>
                     </form>
                 </div>
@@ -379,13 +353,11 @@ $activeTab = $_GET['tab'] ?? 'products';
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Toggle Sidebar
         function toggleSidebar() {
             document.getElementById('sidebar').classList.toggle('show');
             document.getElementById('sidebarOverlay').classList.toggle('show');
         }
 
-        // Modal Edit Stok
         let currentStock = 0;
 
         function openStockModal(id, name, stock) {
@@ -395,17 +367,14 @@ $activeTab = $_GET['tab'] ?? 'products';
             document.getElementById('modalCurrentStock').value = stock;
             document.getElementById('modalNewStock').value = stock;
             document.getElementById('stockDiff').innerText = '';
-
             const modal = new bootstrap.Modal(document.getElementById('stockModal'));
             modal.show();
         }
 
-        // Hitung selisih stok secara real-time
         document.getElementById('modalNewStock').addEventListener('input', function() {
             const newStock = parseInt(this.value) || 0;
             const diff = newStock - currentStock;
             const diffEl = document.getElementById('stockDiff');
-
             if (diff === 0) {
                 diffEl.innerText = '';
                 diffEl.className = 'text-muted';

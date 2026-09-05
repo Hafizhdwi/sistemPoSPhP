@@ -1,9 +1,24 @@
 -- ============================================
--- MINI POS SYSTEM - FULL DATABASE SETUP
+-- MINI POS SYSTEM - FULL DATABASE SETUP (FINAL)
+-- Termasuk: Login, Inventory, Kiosk
 -- ============================================
 
-CREATE DATABASE IF NOT EXISTS db_mini_pos;
+DROP DATABASE IF EXISTS db_mini_pos;
+CREATE DATABASE db_mini_pos CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE db_mini_pos;
+
+-- =====================
+-- TABEL USERS (LOGIN)
+-- =====================
+CREATE TABLE users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(50) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    full_name VARCHAR(100) NOT NULL,
+    role ENUM('admin', 'kasir') NOT NULL DEFAULT 'kasir',
+    is_active TINYINT(1) NOT NULL DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
 
 -- =====================
 -- TABEL PRODUK
@@ -15,32 +30,24 @@ CREATE TABLE products (
     stock INT NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP
-);
-
--- =====================
--- TABEL USERS (LOGIN)
--- =====================
-CREATE TABLE users (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    username VARCHAR(50) NOT NULL UNIQUE,
-    password_hash VARCHAR(255) NOT NULL,
-    full_name VARCHAR(100) NOT NULL,
-    role ENUM('admin', 'kasir') NOT NULL DEFAULT 'kasir',
-    is_active TINYINT(1) DEFAULT 1,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+) ENGINE=InnoDB;
 
 -- =====================
 -- TABEL TRANSAKSI HEADER
+-- Termasuk: order_type (kasir/kiosk), status, customer info
 -- =====================
 CREATE TABLE transactions (
     id INT AUTO_INCREMENT PRIMARY KEY,
     invoice_number VARCHAR(50) NOT NULL UNIQUE,
     total_amount DECIMAL(12,2) NOT NULL,
-    pay_amount DECIMAL(12,2) NOT NULL,
-    change_amount DECIMAL(12,2) NOT NULL,
+    pay_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+    change_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+    order_type ENUM('kasir', 'kiosk') NOT NULL DEFAULT 'kasir',
+    status ENUM('pending', 'preparing', 'ready', 'completed', 'cancelled') NOT NULL DEFAULT 'completed',
+    customer_name VARCHAR(50) DEFAULT NULL,
+    table_number VARCHAR(10) DEFAULT NULL,
     transaction_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+) ENGINE=InnoDB;
 
 -- =====================
 -- TABEL DETAIL TRANSAKSI
@@ -53,7 +60,7 @@ CREATE TABLE transaction_details (
     subtotal DECIMAL(12,2) NOT NULL,
     FOREIGN KEY (transaction_id) REFERENCES transactions(id) ON DELETE CASCADE,
     FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE RESTRICT
-);
+) ENGINE=InnoDB;
 
 -- =====================
 -- TABEL RIWAYAT MUTASI STOK
@@ -67,10 +74,19 @@ CREATE TABLE stock_history (
     notes TEXT DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
-);
+) ENGINE=InnoDB;
 
 -- =====================
--- DATA DUMMY PRODUK
+-- DATA USER DEFAULT
+-- admin / admin123
+-- kasir1 / kasir123
+-- =====================
+INSERT INTO users (username, password_hash, full_name, role, is_active) VALUES 
+('admin', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Administrator', 'admin', 1),
+('kasir1', '$2y$10$sZp7CqGJxVlLwMKzBwN7wuCmFqbJXhWdOvXnHqJfKmRkSjCKOHOa6', 'Kasir Satu', 'kasir', 1);
+
+-- =====================
+-- DATA PRODUK
 -- =====================
 INSERT INTO products (name, price, stock) VALUES 
 ('Kopi Susu Gula Aren', 18000, 50),
@@ -80,7 +96,7 @@ INSERT INTO products (name, price, stock) VALUES
 ('Nasi Goreng Spesial', 35000, 30);
 
 -- =====================
--- DATA AWAL MUTASI STOK (Stok Awal)
+-- DATA MUTASI STOK AWAL
 -- =====================
 INSERT INTO stock_history (product_id, type, quantity, reference, notes) VALUES 
 (1, 'adjustment', 50, 'INITIAL', 'Stok awal produk baru'),
@@ -88,13 +104,3 @@ INSERT INTO stock_history (product_id, type, quantity, reference, notes) VALUES
 (3, 'adjustment', 20, 'INITIAL', 'Stok awal produk baru'),
 (4, 'adjustment', 100, 'INITIAL', 'Stok awal produk baru'),
 (5, 'adjustment', 30, 'INITIAL', 'Stok awal produk baru');
-
--- =====================
--- USER DEFAULT
--- Password sudah di-hash dengan password_hash() PHP
--- admin / admin123
--- kasir1 / kasir123
--- =====================
-INSERT INTO users (username, password_hash, full_name, role) VALUES 
-('admin', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Administrator', 'admin'),
-('kasir1', '$2y$10$sZp7CqGJxVlLwMKzBwN7wuCmFqbJXhWdOvXnHqJfKmRkSjCKOHOa6', 'Kasir Satu', 'kasir');
