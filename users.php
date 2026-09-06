@@ -19,6 +19,7 @@ $stmt = $pdo->prepare("SELECT * FROM users ORDER BY role ASC, full_name ASC LIMI
 $stmt->execute([$perPage, $offset]);
 $users = $stmt->fetchAll();
 
+// ==================== EDIT MODE ====================
 $editUser = null;
 if (isset($_GET['edit'])) {
     $stmt = $pdo->prepare("SELECT * FROM users WHERE id = ?");
@@ -26,18 +27,31 @@ if (isset($_GET['edit'])) {
     $editUser = $stmt->fetch();
 }
 
-// ==================== ACTIVITY LOGS ====================
+// ==================== ACTIVITY LOGS (Exclude Transaksi & Stok) ====================
 $activityLogs = [];
 try {
     $stmtLogs = $pdo->query("
-        SELECT al.action, al.description, al.ip_address, al.created_at, u.full_name 
-        FROM activity_logs al 
+        SELECT 
+            al.action,
+            al.entity_type,
+            al.entity_id,
+            al.description,
+            al.ip_address,
+            al.user_agent,
+            al.created_at,
+            u.full_name
+        FROM activity_logs al
         LEFT JOIN users u ON al.entity_id = u.id AND al.entity_type = 'user'
-        ORDER BY al.created_at DESC 
-        LIMIT 10
+        WHERE 
+            (al.entity_type IS NULL OR al.entity_type NOT IN ('transaction', 'transaction_detail', 'stock', 'stock_history'))
+            AND al.action NOT LIKE 'transaction_%'
+            AND al.action NOT LIKE 'stock_%'
+        ORDER BY al.created_at DESC
+        LIMIT 20
     ");
     $activityLogs = $stmtLogs->fetchAll();
 } catch (Exception $e) {
+    $activityLogs = [];
 }
 
 // ==================== PASSWORD HISTORY ====================
@@ -55,6 +69,7 @@ if ($editUser) {
         $stmtHist->execute([$editUser['id']]);
         $passwordHistory = $stmtHist->fetchAll();
     } catch (Exception $e) {
+        $passwordHistory = [];
     }
 }
 
@@ -211,7 +226,7 @@ $msg = $_GET['msg'] ?? '';
             display: flex;
             align-items: flex-start;
             gap: 12px;
-            padding: 12px 0;
+            padding: 14px 0;
             border-bottom: 1px solid #f3f4f6;
         }
 
@@ -220,8 +235,8 @@ $msg = $_GET['msg'] ?? '';
         }
 
         .activity-icon {
-            width: 36px;
-            height: 36px;
+            width: 38px;
+            height: 38px;
             border-radius: 50%;
             display: flex;
             align-items: center;
@@ -243,6 +258,21 @@ $msg = $_GET['msg'] ?? '';
         .activity-icon.info {
             background: #dbeafe;
             color: #2563eb;
+        }
+
+        .activity-icon.warning {
+            background: #fef3c7;
+            color: #d97706;
+        }
+
+        .activity-icon.dark {
+            background: #e5e7eb;
+            color: #111827;
+        }
+
+        .activity-icon.primary {
+            background: #e0e7ff;
+            color: #4f46e5;
         }
 
         .password-history-item {
@@ -314,7 +344,7 @@ $msg = $_GET['msg'] ?? '';
         <?php endif; ?>
 
         <div class="row g-4">
-            <!-- KOLOM KIRI: Form + Aksi Cepat + Manajemen Password -->
+            <!-- KOLOM KIRI -->
             <div class="col-12 col-lg-4">
                 <div class="card border-0 shadow-sm">
                     <div class="card-header">
@@ -401,8 +431,8 @@ $msg = $_GET['msg'] ?? '';
                     </div>
                 </div>
 
-                <!-- QUICK ACTIONS CARD -->
                 <?php if ($editUser): ?>
+                    <!-- QUICK ACTIONS -->
                     <div class="card border-0 shadow-sm mt-3">
                         <div class="card-header">⚡ Aksi Cepat</div>
                         <div class="card-body">
@@ -423,7 +453,7 @@ $msg = $_GET['msg'] ?? '';
                         </div>
                     </div>
 
-                    <!-- PASSWORD MANAGEMENT CARD -->
+                    <!-- PASSWORD MANAGEMENT -->
                     <div class="card border-0 shadow-sm mt-3">
                         <div class="card-header">🔐 Manajemen Password</div>
                         <div class="card-body">
@@ -509,8 +539,9 @@ $msg = $_GET['msg'] ?? '';
                 <?php endif; ?>
             </div>
 
-            <!-- KOLOM KANAN: Tabel + Info + Activity Log -->
+            <!-- KOLOM KANAN -->
             <div class="col-12 col-lg-8">
+                <!-- TABEL USER -->
                 <div class="card border-0 shadow-sm">
                     <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
                         <span>📋 Daftar User</span>
@@ -596,7 +627,7 @@ $msg = $_GET['msg'] ?? '';
                         <?php if ($totalPages > 1): ?>
                             <div class="pagination-container border-top">
                                 <?php if ($page > 1): ?>
-                                    <a href="?page=<?= $page - 1 ?><?= $editUser ? '&edit=' . $editUser['id'] : '' ?>" class="page-btn" title="Sebelumnya">
+                                    <a href="?page=<?= $page - 1 ?><?= $editUser ? '&edit=' . $editUser['id'] : '' ?>" class="page-btn">
                                         <i class="bi bi-chevron-left"></i>
                                     </a>
                                 <?php else: ?>
@@ -618,7 +649,7 @@ $msg = $_GET['msg'] ?? '';
                                 ?>
 
                                 <?php if ($page < $totalPages): ?>
-                                    <a href="?page=<?= $page + 1 ?><?= $editUser ? '&edit=' . $editUser['id'] : '' ?>" class="page-btn" title="Berikutnya">
+                                    <a href="?page=<?= $page + 1 ?><?= $editUser ? '&edit=' . $editUser['id'] : '' ?>" class="page-btn">
                                         <i class="bi bi-chevron-right"></i>
                                     </a>
                                 <?php else: ?>
@@ -645,18 +676,18 @@ $msg = $_GET['msg'] ?? '';
                             <li>Admin bisa mengedit akun sendiri termasuk username dan password</li>
                             <li>Klik icon 👁️ untuk lihat/sembunyikan password saat mengetik</li>
                             <li>Daftar user ditampilkan 10 per halaman dengan navigasi pagination</li>
-                            <li>Log aktivitas mencatat login berhasil/gagal dan aksi penting lainnya</li>
+                            <li>Log aktivitas mencatat login, perubahan user, dan aksi penting lainnya</li>
                         </ul>
                     </div>
                 </div>
 
-                <!-- ✅ LOG AKTIVITAS TERBARU - SEKARANG DI KOLOM KANAN, DI BAWAH INFO CARD -->
+                <!-- ✅ LOG AKTIVITAS TERBARU -->
                 <div class="card border-0 shadow-sm mt-3">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <span>📋 Log Aktivitas Terbaru</span>
                         <div class="d-flex align-items-center gap-2">
                             <span class="badge bg-light text-dark border"><?= count($activityLogs) ?></span>
-                            <a href="history.php?tab=users" class="btn btn-sm btn-outline-primary px-3" title="Lihat semua">
+                            <a href="history.php?tab=users" class="btn btn-sm btn-outline-primary px-3">
                                 Lihat Semua →
                             </a>
                         </div>
@@ -666,44 +697,75 @@ $msg = $_GET['msg'] ?? '';
                             <div class="text-center py-4 text-muted">
                                 <div style="font-size:2.5rem;">📭</div>
                                 <small class="d-block mt-2">Belum ada aktivitas tercatat</small>
-                                <small class="text-muted">Aktivitas login & aksi user akan muncul di sini</small>
+                                <small class="text-muted">Aktivitas login dan perubahan data akan muncul di sini</small>
                             </div>
                         <?php else: ?>
                             <?php foreach ($activityLogs as $log): ?>
                                 <?php
+                                $action = $log['action'];
+                                $badgeClass = 'bg-secondary';
                                 $iconClass = 'info';
                                 $icon = 'ℹ️';
-                                if (strpos($log['action'], 'success') !== false || strpos($log['action'], 'login_success') !== false) {
+                                $label = ucwords(str_replace('_', ' ', $action));
+
+                                if (str_contains($action, 'login_success') || str_contains($action, 'created')) {
+                                    $badgeClass = 'bg-success';
                                     $iconClass = 'success';
                                     $icon = '✅';
-                                } elseif (strpos($log['action'], 'failed') !== false) {
+                                } elseif (str_contains($action, 'failed') || str_contains($action, 'deleted')) {
+                                    $badgeClass = 'bg-danger';
                                     $iconClass = 'failed';
                                     $icon = '❌';
-                                } elseif (strpos($log['action'], 'logout') !== false) {
+                                } elseif (str_contains($action, 'password')) {
+                                    $badgeClass = 'bg-warning text-dark';
+                                    $iconClass = 'warning';
+                                    $icon = '🔑';
+                                } elseif (str_contains($action, 'updated') || str_contains($action, 'toggled')) {
+                                    $badgeClass = 'bg-info text-dark';
                                     $iconClass = 'info';
+                                    $icon = '✏️';
+                                } elseif (str_contains($action, 'logout')) {
+                                    $badgeClass = 'bg-dark';
+                                    $iconClass = 'dark';
                                     $icon = '🚪';
+                                } elseif (str_contains($action, 'system')) {
+                                    $badgeClass = 'bg-primary';
+                                    $iconClass = 'primary';
+                                    $icon = '⚙️';
                                 }
                                 ?>
                                 <div class="activity-item">
                                     <div class="activity-icon <?= $iconClass ?>"><?= $icon ?></div>
                                     <div class="flex-grow-1" style="min-width:0;">
-                                        <div class="small fw-semibold text-truncate">
-                                            <?= htmlspecialchars($log['description'] ?: ucfirst(str_replace('_', ' ', $log['action']))) ?>
+                                        <div class="d-flex justify-content-between align-items-start gap-2 flex-wrap">
+                                            <span class="badge <?= $badgeClass ?>" style="font-size:0.65rem;">
+                                                <?= htmlspecialchars($label) ?>
+                                            </span>
+                                            <small class="text-muted">
+                                                <?= date('d/m/Y H:i:s', strtotime($log['created_at'])) ?>
+                                            </small>
                                         </div>
-                                        <div class="d-flex gap-2 mt-1 flex-wrap">
-                                            <?php if ($log['full_name']): ?>
+
+                                        <div class="small fw-semibold mt-2">
+                                            <?= htmlspecialchars($log['description'] ?: $label) ?>
+                                        </div>
+
+                                        <div class="d-flex gap-2 mt-2 flex-wrap">
+                                            <?php if (!empty($log['full_name'])): ?>
                                                 <span class="badge bg-light text-dark border" style="font-size:0.65rem;">
-                                                    👤 <?= htmlspecialchars($log['full_name']) ?>
+                                                    👤 Target: <?= htmlspecialchars($log['full_name']) ?>
                                                 </span>
                                             <?php endif; ?>
-                                            <?php if ($log['ip_address']): ?>
+                                            <?php if (!empty($log['entity_type'])): ?>
+                                                <span class="badge bg-light text-dark border" style="font-size:0.65rem;">
+                                                    🧩 <?= htmlspecialchars($log['entity_type']) ?>
+                                                </span>
+                                            <?php endif; ?>
+                                            <?php if (!empty($log['ip_address'])): ?>
                                                 <span class="badge bg-light text-dark border" style="font-size:0.65rem;">
                                                     🌐 <?= htmlspecialchars($log['ip_address']) ?>
                                                 </span>
                                             <?php endif; ?>
-                                            <span class="badge bg-light text-dark border" style="font-size:0.65rem;">
-                                                🕐 <?= date('d/m H:i', strtotime($log['created_at'])) ?>
-                                            </span>
                                         </div>
                                     </div>
                                 </div>

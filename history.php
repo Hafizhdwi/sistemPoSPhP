@@ -27,11 +27,30 @@ $stockHistory = $pdo->query("
 // ==================== DATA AKTIVITAS USER ====================
 $userActivities = [];
 if (hasRole('admin')) {
-    // Ambil dari tabel users sebagai aktivitas sederhana
-    $userActivities = $pdo->query("
-        SELECT id, full_name, username, role, is_active, created_at 
-        FROM users ORDER BY created_at DESC LIMIT 50
-    ")->fetchAll();
+    try {
+        $stmtActivities = $pdo->query("
+            SELECT 
+                al.action,
+                al.entity_type,
+                al.entity_id,
+                al.description,
+                al.ip_address,
+                al.user_agent,
+                al.created_at,
+                u.full_name
+            FROM activity_logs al
+            LEFT JOIN users u ON al.entity_id = u.id AND al.entity_type = 'user'
+            WHERE 
+                (al.entity_type IS NULL OR al.entity_type NOT IN ('transaction', 'transaction_detail', 'stock', 'stock_history'))
+                AND al.action NOT LIKE 'transaction_%'
+                AND al.action NOT LIKE 'stock_%'
+            ORDER BY al.created_at DESC
+            LIMIT 200
+        ");
+        $userActivities = $stmtActivities->fetchAll();
+    } catch (Exception $e) {
+        $userActivities = [];
+    }
 }
 ?>
 <!DOCTYPE html>
@@ -43,6 +62,11 @@ if (hasRole('admin')) {
     <title>Riwayat - Mini PoS</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="assets/style.css">
+    <style>
+        .activity-badge {
+            font-size: 0.7rem;
+        }
+    </style>
 </head>
 
 <body>
@@ -141,7 +165,7 @@ if (hasRole('admin')) {
             <?php endif; ?>
         </ul>
 
-        <!-- ==================== TAB: TRANSAKSI ==================== -->
+        <!-- TAB: TRANSAKSI -->
         <?php if ($activeTab === 'transactions'): ?>
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
@@ -233,7 +257,7 @@ if (hasRole('admin')) {
             </div>
         <?php endif; ?>
 
-        <!-- ==================== TAB: MUTASI STOK ==================== -->
+        <!-- TAB: MUTASI STOK -->
         <?php if ($activeTab === 'stock'): ?>
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
@@ -293,59 +317,112 @@ if (hasRole('admin')) {
             </div>
         <?php endif; ?>
 
-        <!-- ==================== TAB: AKTIVITAS USER (Admin Only) ==================== -->
+        <!-- TAB: AKTIVITAS USER -->
         <?php if ($activeTab === 'users' && hasRole('admin')): ?>
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
-                    <span>👥 Data User Terdaftar</span>
-                    <span class="badge bg-light text-dark border px-3 py-2"><?= count($userActivities) ?> user</span>
+                    <span>👥 Log Aktivitas User & Sistem</span>
+                    <span class="badge bg-light text-dark border px-3 py-2"><?= count($userActivities) ?> aktivitas</span>
                 </div>
-                <div class="card-body p-0">
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle mb-0">
-                            <thead class="table-light">
-                                <tr>
-                                    <th class="ps-3 ps-md-4">User</th>
-                                    <th>Username</th>
-                                    <th class="text-center">Role</th>
-                                    <th class="text-center">Status</th>
-                                    <th>Terdaftar</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach ($userActivities as $u): ?>
-                                    <tr class="<?= !$u['is_active'] ? 'table-secondary' : '' ?>">
-                                        <td class="ps-3 ps-md-4">
-                                            <div class="d-flex align-items-center gap-2">
-                                                <div style="width:36px;height:36px;border-radius:50%;background:<?= $u['role'] === 'admin' ? '#667eea' : '#10b981' ?>;display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:0.85rem;">
-                                                    <?= strtoupper(substr($u['full_name'], 0, 1)) ?>
-                                                </div>
-                                                <div class="fw-semibold"><?= htmlspecialchars($u['full_name']) ?></div>
-                                            </div>
-                                        </td>
-                                        <td class="font-monospace small"><?= htmlspecialchars($u['username']) ?></td>
-                                        <td class="text-center">
-                                            <span class="badge <?= $u['role'] === 'admin' ? 'bg-primary' : 'bg-success' ?>"><?= strtoupper($u['role']) ?></span>
-                                        </td>
-                                        <td class="text-center">
-                                            <?= $u['is_active'] ? '<span class="badge bg-success">Aktif</span>' : '<span class="badge bg-secondary">Nonaktif</span>' ?>
-                                        </td>
-                                        <td>
-                                            <div class="fw-semibold"><?= date('d M Y', strtotime($u['created_at'])) ?></div>
-                                            <small class="text-muted"><?= date('H:i', strtotime($u['created_at'])) ?></small>
-                                        </td>
+                <div class="card-body p-3">
+                    <?php if (empty($userActivities)): ?>
+                        <div class="text-center py-5 text-muted">
+                            <div style="font-size:3rem;">📭</div>
+                            <h6 class="fw-bold mt-3">Belum ada aktivitas</h6>
+                            <small>Aktivitas login, perubahan user, dan perubahan sistem akan muncul di sini.</small>
+                        </div>
+                    <?php else: ?>
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Waktu</th>
+                                        <th class="text-center">Tipe</th>
+                                        <th>Aktivitas</th>
+                                        <th>Target</th>
+                                        <th>IP Address</th>
                                     </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($userActivities as $log): ?>
+                                        <?php
+                                        $action = $log['action'];
+                                        $badgeClass = 'bg-secondary';
+                                        $icon = 'ℹ️';
+                                        $label = ucwords(str_replace('_', ' ', $action));
+
+                                        if (str_contains($action, 'login_success') || str_contains($action, 'created')) {
+                                            $badgeClass = 'bg-success';
+                                            $icon = '✅';
+                                        } elseif (str_contains($action, 'failed') || str_contains($action, 'deleted')) {
+                                            $badgeClass = 'bg-danger';
+                                            $icon = '❌';
+                                        } elseif (str_contains($action, 'password')) {
+                                            $badgeClass = 'bg-warning text-dark';
+                                            $icon = '🔑';
+                                        } elseif (str_contains($action, 'updated') || str_contains($action, 'toggled')) {
+                                            $badgeClass = 'bg-info text-dark';
+                                            $icon = '✏️';
+                                        } elseif (str_contains($action, 'logout')) {
+                                            $badgeClass = 'bg-dark';
+                                            $icon = '🚪';
+                                        } elseif (str_contains($action, 'system')) {
+                                            $badgeClass = 'bg-primary';
+                                            $icon = '⚙️';
+                                        }
+                                        ?>
+                                        <tr>
+                                            <td>
+                                                <div class="fw-semibold"><?= date('d M Y', strtotime($log['created_at'])) ?></div>
+                                                <small class="text-muted"><?= date('H:i:s', strtotime($log['created_at'])) ?></small>
+                                            </td>
+                                            <td class="text-center">
+                                                <span class="badge <?= $badgeClass ?> activity-badge">
+                                                    <?= $icon ?> <?= htmlspecialchars($label) ?>
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <div class="fw-semibold">
+                                                    <?= htmlspecialchars($log['description'] ?: $label) ?>
+                                                </div>
+                                                <?php if (!empty($log['entity_type'])): ?>
+                                                    <small class="text-muted">
+                                                        Entity: <?= htmlspecialchars($log['entity_type']) ?>
+                                                        <?php if (!empty($log['entity_id'])): ?>
+                                                            #<?= htmlspecialchars($log['entity_id']) ?>
+                                                        <?php endif; ?>
+                                                    </small>
+                                                <?php endif; ?>
+                                            </td>
+                                            <td>
+                                                <?php if (!empty($log['full_name'])): ?>
+                                                    <span class="badge bg-light text-dark border">
+                                                        👤 <?= htmlspecialchars($log['full_name']) ?>
+                                                    </span>
+                                                <?php else: ?>
+                                                    <span class="text-muted">-</span>
+                                                <?php endif; ?>
+                                            </td>
+                                            <td>
+                                                <?php if (!empty($log['ip_address'])): ?>
+                                                    <code><?= htmlspecialchars($log['ip_address']) ?></code>
+                                                <?php else: ?>
+                                                    <span class="text-muted">-</span>
+                                                <?php endif; ?>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    <?php endif; ?>
                 </div>
             </div>
         <?php endif; ?>
 
         <!-- LEGEND -->
         <div class="mt-3 d-flex flex-wrap gap-3 align-items-center">
-            <small class="text-muted fw-semibold">Status:</small>
+            <small class="text-muted fw-semibold">Status Transaksi:</small>
             <span class="badge bg-danger">PENDING</span>
             <span class="badge bg-warning text-dark">DIMASAK</span>
             <span class="badge bg-info text-dark">SIAP</span>

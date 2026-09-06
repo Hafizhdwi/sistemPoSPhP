@@ -10,21 +10,6 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 $action = $_POST['action'] ?? '';
 $isAjax = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
 
-// ==================== HELPER: CATAT PASSWORD HISTORY ====================
-function logPasswordChange($pdo, $userId, $oldHash, $changedByUserId, $changedByName, $method, $notes = null)
-{
-    try {
-        $stmt = $pdo->prepare("
-            INSERT INTO password_history (user_id, password_hash, changed_by_user_id, changed_by_name, change_method, notes) 
-            VALUES (?, ?, ?, ?, ?, ?)
-        ");
-        $stmt->execute([$userId, $oldHash, $changedByUserId, $changedByName, $method, $notes]);
-    } catch (Exception $e) {
-        // Silent fail - jangan ganggu proses utama jika logging error
-        error_log('Password history log failed: ' . $e->getMessage());
-    }
-}
-
 try {
     // ==================== CREATE USER ====================
     if ($action === 'create') {
@@ -47,8 +32,9 @@ try {
         $stmt = $pdo->prepare("INSERT INTO users (full_name, username, password_hash, role, is_active) VALUES (?, ?, ?, ?, 1)");
         $stmt->execute([$fullName, $username, $passwordHash, $role]);
 
-        // ✅ Catat password awal ke history
         $newUserId = $pdo->lastInsertId();
+
+        // ✅ Catat password awal ke history
         logPasswordChange(
             $pdo,
             $newUserId,
@@ -59,11 +45,20 @@ try {
             'Password awal saat user baru dibuat'
         );
 
+        // ✅ Log aktivitas user created
+        logActivity(
+            $pdo,
+            'user_created',
+            'user',
+            $newUserId,
+            "Admin {$_SESSION['full_name']} membuat user baru: {$fullName} (@{$username}) sebagai {$role}"
+        );
+
         header('Location: users.php?msg=added');
         exit;
     }
 
-    // ==================== UPDATE USER (dengan optional password) ====================
+    // ==================== UPDATE USER ====================
     if ($action === 'update') {
         $id = intval($_POST['id'] ?? 0);
         $fullName = trim($_POST['full_name'] ?? '');
@@ -76,7 +71,8 @@ try {
         if (!in_array($role, ['admin', 'kasir'])) throw new Exception('Role tidak valid!');
         if (!preg_match('/^[a-zA-Z0-9_]+$/', $username)) throw new Exception('Username hanya boleh huruf, angka, dan underscore!');
 
-        $stmt = $pdo->prepare("SELECT role, is_active FROM users WHERE id = ?");
+        // ✅ Ambil data lengkap user untuk log perubahan
+        $stmt = $pdo->prepare("SELECT * FROM users WHERE id = ?");
         $stmt->execute([$id]);
         $currentUser = $stmt->fetch();
         if (!$currentUser) throw new Exception('User tidak ditemukan!');
@@ -108,7 +104,6 @@ try {
 
         // ✅ UPDATE DENGAN ATAU TANPA PASSWORD
         if (!empty($password)) {
-            // Ambil hash lama untuk history
             $stmtOld = $pdo->prepare("SELECT password_hash FROM users WHERE id = ?");
             $stmtOld->execute([$id]);
             $oldHash = $stmtOld->fetch()['password_hash'];
@@ -117,7 +112,6 @@ try {
             $stmt = $pdo->prepare("UPDATE users SET full_name = ?, username = ?, role = ?, is_active = ?, password_hash = ? WHERE id = ?");
             $stmt->execute([$fullName, $username, $role, $isActive, $passwordHash, $id]);
 
-            // ✅ Catat perubahan password ke history
             logPasswordChange(
                 $pdo,
                 $id,
@@ -127,13 +121,81 @@ try {
                 'custom',
                 'Password diubah via form edit user'
             );
+
+            // ✅ Log aktivitas password
+            logActivity(
+                $pdo,
+                'user_password_changed',
+                'user',
+                $id,
+                "Admin {$_SESSION['full_name']} mengubah password user {$currentUser['full_name']} (@{$currentUser['username']}) via form edit"
+            );
         } else {
-            // Password kosong = tidak diubah
             $stmt = $pdo->prepare("UPDATE users SET full_name = ?, username = ?, role = ?, is_active = ? WHERE id = ?");
             $stmt->execute([$fullName, $username, $role, $isActive, $id]);
         }
 
-        // Jika username sendiri diubah, update session
+        // ✅ LOG AKTIVITAS DETAIL PERUBAHAN FIELD
+        if ($currentUser['full_name'] !== $fullName) {
+            logActivity(
+                $pdo,
+                'user_fullname_updated',
+                'user',
+                $id,
+                "Admin {$_SESSION['full_name']} mengubah nama user dari '{$currentUser['full_name']}' menjadi '{$fullName}'"
+            );
+        }
+
+        if ($currentUser['username'] !== $username) {
+            logActivity(
+                $pdo,
+                'user_username_updated',
+                'user',
+                $id,
+                "Admin {$_SESSION['full_name']} mengubah username dari '{$currentUser['username']}' menjadi '{$username}'"
+            );
+        }
+
+        if ($currentUser['role'] !== $role) {
+            logActivity(
+                $pdo,
+                'user_role_updated',
+                'user',
+                $id,
+                "Admin {$_SESSION['full_name']} mengubah role user {$fullName} dari {$currentUser['role']} menjadi {$role}"
+            );
+        }
+
+        if ((int)$currentUser['is_active'] !== (int)$isActive) {
+            $oldStatus = $currentUser['is_active'] ? 'aktif' : 'nonaktif';
+            $newStatus = $isActive ? 'aktif' : 'nonaktif';
+            logActivity(
+                $pdo,
+                'user_status_updated',
+                'user',
+                $id,
+                "Admin {$_SESSION['full_name']} mengubah status user {$fullName} dari {$oldStatus} menjadi {$newStatus}"
+            );
+        }
+
+        // Jika submit update tapi tidak ada perubahan
+        if (
+            $currentUser['full_name'] === $fullName &&
+            $currentUser['username'] === $username &&
+            $currentUser['role'] === $role &&
+            (int)$currentUser['is_active'] === (int)$isActive &&
+            empty($password)
+        ) {
+            logActivity(
+                $pdo,
+                'user_update_no_change',
+                'user',
+                $id,
+                "Admin {$_SESSION['full_name']} menyimpan user {$fullName}, tetapi tidak ada perubahan data"
+            );
+        }
+
+        // Update session jika edit diri sendiri
         if ($id == $_SESSION['user_id']) {
             $_SESSION['full_name'] = $fullName;
             $_SESSION['username'] = $username;
@@ -153,7 +215,7 @@ try {
             exit;
         }
 
-        $stmt = $pdo->prepare("SELECT role, is_active FROM users WHERE id = ?");
+        $stmt = $pdo->prepare("SELECT full_name, username, role, is_active FROM users WHERE id = ?");
         $stmt->execute([$id]);
         $user = $stmt->fetch();
         if (!$user) throw new Exception('User tidak ditemukan!');
@@ -169,6 +231,16 @@ try {
 
         $stmt = $pdo->prepare("DELETE FROM users WHERE id = ?");
         $stmt->execute([$id]);
+
+        // ✅ Log aktivitas delete
+        logActivity(
+            $pdo,
+            'user_deleted',
+            'user',
+            $id,
+            "Admin {$_SESSION['full_name']} menghapus user {$user['full_name']} (@{$user['username']}) dengan role {$user['role']}"
+        );
+
         header('Location: users.php?msg=deleted');
         exit;
     }
@@ -178,8 +250,7 @@ try {
         $id = intval($_POST['id'] ?? 0);
         if (!$id) throw new Exception('ID tidak valid!');
 
-        // Ambil hash lama untuk history
-        $stmtOld = $pdo->prepare("SELECT password_hash FROM users WHERE id = ?");
+        $stmtOld = $pdo->prepare("SELECT password_hash, username FROM users WHERE id = ?");
         $stmtOld->execute([$id]);
         $oldUser = $stmtOld->fetch();
         if (!$oldUser) throw new Exception('User tidak ditemukan!');
@@ -190,7 +261,6 @@ try {
         $stmt = $pdo->prepare("UPDATE users SET password_hash = ? WHERE id = ?");
         $stmt->execute([$passwordHash, $id]);
 
-        // ✅ Catat ke history
         logPasswordChange(
             $pdo,
             $id,
@@ -199,6 +269,15 @@ try {
             $_SESSION['full_name'],
             'default_reset',
             'Password direset via legacy reset'
+        );
+
+        // ✅ Log aktivitas
+        logActivity(
+            $pdo,
+            'user_password_reset',
+            'user',
+            $id,
+            "Admin {$_SESSION['full_name']} mereset password user {$oldUser['username']} ke password default"
         );
 
         if ($isAjax) {
@@ -210,7 +289,7 @@ try {
         exit;
     }
 
-    // ==================== CHANGE PASSWORD (Default/Custom) ====================
+    // ==================== CHANGE PASSWORD ====================
     if ($action === 'change_password') {
         $id = intval($_POST['id'] ?? 0);
         $passwordOption = $_POST['password_option'] ?? 'default';
@@ -238,23 +317,26 @@ try {
         $stmt = $pdo->prepare("UPDATE users SET password_hash = ? WHERE id = ?");
         $stmt->execute([$passwordHash, $id]);
 
-        // ✅ Catat perubahan password ke history
         $method = ($passwordOption === 'custom') ? 'custom' : 'default_reset';
         $notes = ($passwordOption === 'custom')
             ? 'Password diubah via menu ganti password (custom)'
             : 'Password direset ke default via menu ganti password';
 
-        logPasswordChange(
+        logPasswordChange($pdo, $id, $oldHash, $_SESSION['user_id'], $_SESSION['full_name'], $method, $notes);
+
+        // ✅ Log aktivitas
+        $activityAction = ($passwordOption === 'custom') ? 'user_password_changed_custom' : 'user_password_reset_default';
+        logActivity(
             $pdo,
+            $activityAction,
+            'user',
             $id,
-            $oldHash,
-            $_SESSION['user_id'],
-            $_SESSION['full_name'],
-            $method,
-            $notes
+            "Admin {$_SESSION['full_name']} " .
+                (($passwordOption === 'custom')
+                    ? "mengubah password user {$userData['username']} menggunakan password custom"
+                    : "mereset password user {$userData['username']} ke password default")
         );
 
-        // Jika ganti password sendiri, logout agar login ulang dengan password baru
         if ($id == $_SESSION['user_id']) {
             session_unset();
             session_destroy();
@@ -262,7 +344,6 @@ try {
             exit;
         }
 
-        // ✅ Support JSON response untuk AJAX (quick reset)
         if ($isAjax) {
             header('Content-Type: application/json');
             echo json_encode(['success' => true, 'message' => 'Password berhasil diubah']);
@@ -283,14 +364,10 @@ try {
         $user = $stmt->fetch();
         if (!$user) throw new Exception('User tidak ditemukan!');
 
-        // Cek apakah password masih default (password123)
         $isDefault = password_verify('password123', $user['password_hash']);
 
         header('Content-Type: application/json');
-        echo json_encode([
-            'success' => true,
-            'is_default' => $isDefault
-        ]);
+        echo json_encode(['success' => true, 'is_default' => $isDefault]);
         exit;
     }
 
@@ -301,7 +378,7 @@ try {
         if (!$id) throw new Exception('ID tidak valid!');
         if ($id == $_SESSION['user_id']) throw new Exception('Tidak bisa menonaktifkan akun sendiri!');
 
-        $stmt = $pdo->prepare("SELECT role, is_active FROM users WHERE id = ?");
+        $stmt = $pdo->prepare("SELECT full_name, username, role, is_active FROM users WHERE id = ?");
         $stmt->execute([$id]);
         $user = $stmt->fetch();
         if (!$user) throw new Exception('User tidak ditemukan!');
@@ -314,6 +391,16 @@ try {
 
         $stmt = $pdo->prepare("UPDATE users SET is_active = ? WHERE id = ?");
         $stmt->execute([$isActive, $id]);
+
+        // ✅ Log aktivitas toggle
+        $newStatusText = $isActive ? 'aktif' : 'nonaktif';
+        logActivity(
+            $pdo,
+            'user_status_toggled',
+            'user',
+            $id,
+            "Admin {$_SESSION['full_name']} mengubah status user {$user['full_name']} (@{$user['username']}) menjadi {$newStatusText}"
+        );
 
         if ($isAjax) {
             header('Content-Type: application/json');
