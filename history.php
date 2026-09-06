@@ -2,20 +2,37 @@
 require_once 'config/database.php';
 requireLogin();
 
-// Ambil semua transaksi termasuk kiosk
+$activeTab = $_GET['tab'] ?? 'transactions';
+
+// ==================== DATA TRANSAKSI ====================
 $transactions = $pdo->query("
     SELECT t.*, COUNT(td.id) as item_count 
     FROM transactions t 
     LEFT JOIN transaction_details td ON t.id = td.transaction_id 
-    GROUP BY t.id 
-    ORDER BY t.transaction_date DESC 
-    LIMIT 100
+    GROUP BY t.id ORDER BY t.transaction_date DESC LIMIT 100
 ")->fetchAll();
 
 $totalRevenue = array_sum(array_column($transactions, 'total_amount'));
 $avgPerTx = count($transactions) ? $totalRevenue / count($transactions) : 0;
 $pendingCount = count(array_filter($transactions, fn($t) => $t['status'] === 'pending'));
 $kioskCount = count(array_filter($transactions, fn($t) => $t['order_type'] === 'kiosk'));
+
+// ==================== DATA MUTASI STOK ====================
+$stockHistory = $pdo->query("
+    SELECT sh.*, p.name as product_name 
+    FROM stock_history sh JOIN products p ON sh.product_id = p.id 
+    ORDER BY sh.created_at DESC LIMIT 100
+")->fetchAll();
+
+// ==================== DATA AKTIVITAS USER ====================
+$userActivities = [];
+if (hasRole('admin')) {
+    // Ambil dari tabel users sebagai aktivitas sederhana
+    $userActivities = $pdo->query("
+        SELECT id, full_name, username, role, is_active, created_at 
+        FROM users ORDER BY created_at DESC LIMIT 50
+    ")->fetchAll();
+}
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -40,10 +57,12 @@ $kioskCount = count(array_filter($transactions, fn($t) => $t['order_type'] === '
         <nav>
             <?php if (hasRole('admin')): ?>
                 <a href="dashboard.php" class="nav-link">📊 Dashboard</a>
+                <a href="users.php" class="nav-link">👥 User</a>
             <?php endif; ?>
             <a href="index.php" class="nav-link">🛒 Kasir</a>
             <?php if (hasRole('admin')): ?>
                 <a href="products.php" class="nav-link">📦 Produk</a>
+                <a href="kitchen.php" class="nav-link">🍳 Dapur</a>
             <?php endif; ?>
             <a href="history.php" class="nav-link active">📜 Riwayat</a>
         </nav>
@@ -55,21 +74,19 @@ $kioskCount = count(array_filter($transactions, fn($t) => $t['order_type'] === '
     <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
 
     <div class="main-content">
-        <!-- MOBILE HEADER -->
         <div class="mobile-header">
             <button class="btn-toggle-sidebar" onclick="toggleSidebar()">☰</button>
             <span class="brand-mobile">🏪 Mini PoS</span>
             <span style="width:30px;"></span>
         </div>
 
-        <!-- HEADER -->
         <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
             <div>
-                <h4 class="fw-bold m-0">📜 Riwayat Transaksi</h4>
-                <small class="text-muted">Semua transaksi kasir & kiosk</small>
+                <h4 class="fw-bold m-0">📜 Pusat Riwayat</h4>
+                <small class="text-muted">Semua catatan aktivitas sistem</small>
             </div>
             <?php if ($pendingCount > 0): ?>
-                <span class="badge bg-danger px-3 py-2 fw-bold">⚠️ <?= $pendingCount ?> pesanan pending</span>
+                <span class="badge bg-danger px-3 py-2 fw-bold">⚠️ <?= $pendingCount ?> pending</span>
             <?php endif; ?>
         </div>
 
@@ -86,7 +103,7 @@ $kioskCount = count(array_filter($transactions, fn($t) => $t['order_type'] === '
             <div class="col-6 col-lg-3">
                 <div class="card h-100 text-white" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);">
                     <div class="card-body p-3 p-md-4">
-                        <small class="opacity-75 fw-semibold d-block">Total Pendapatan</small>
+                        <small class="opacity-75 fw-semibold d-block">Pendapatan</small>
                         <h3 class="fw-bold mt-2 mb-0"><?= formatRupiah($totalRevenue) ?></h3>
                     </div>
                 </div>
@@ -109,100 +126,230 @@ $kioskCount = count(array_filter($transactions, fn($t) => $t['order_type'] === '
             </div>
         </div>
 
-        <!-- TABEL RIWAYAT -->
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
-                <span>📋 Daftar Transaksi</span>
-                <span class="badge bg-light text-dark border px-3 py-2"><?= count($transactions) ?> transaksi</span>
-            </div>
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th class="ps-3 ps-md-4">Invoice</th>
-                                <th>Tipe</th>
-                                <th>Pelanggan / Meja</th>
-                                <th>Tanggal</th>
-                                <th class="text-center">Items</th>
-                                <th class="text-center">Status</th>
-                                <th class="text-end">Total</th>
-                                <th class="text-end pe-3 pe-md-4">Kembali</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($transactions as $t): ?>
-                                <tr class="<?= $t['status'] === 'pending' ? 'table-warning' : '' ?>">
-                                    <td class="ps-3 ps-md-4">
-                                        <span class="fw-semibold font-monospace small"><?= htmlspecialchars($t['invoice_number']) ?></span>
-                                    </td>
-                                    <td>
-                                        <?php if ($t['order_type'] === 'kiosk'): ?>
-                                            <span class="badge bg-warning text-dark">🖥️ KIOSK</span>
-                                        <?php else: ?>
-                                            <span class="badge bg-secondary bg-opacity-10 text-secondary">🛒 KASIR</span>
-                                        <?php endif; ?>
-                                    </td>
-                                    <td>
-                                        <?php if ($t['customer_name']): ?>
-                                            <div class="fw-semibold"><?= htmlspecialchars($t['customer_name']) ?></div>
-                                            <small class="text-muted">Meja <?= htmlspecialchars($t['table_number']) ?></small>
-                                        <?php else: ?>
-                                            <span class="text-muted">-</span>
-                                        <?php endif; ?>
-                                    </td>
-                                    <td>
-                                        <div class="fw-semibold"><?= date('d M Y', strtotime($t['transaction_date'])) ?></div>
-                                        <small class="text-muted"><?= date('H:i', strtotime($t['transaction_date'])) ?></small>
-                                    </td>
-                                    <td class="text-center">
-                                        <span class="badge bg-secondary bg-opacity-10 text-secondary"><?= $t['item_count'] ?></span>
-                                    </td>
-                                    <td class="text-center">
-                                        <?php
-                                        $statusBadge = match ($t['status']) {
-                                            'pending'   => '<span class="badge bg-danger">PENDING</span>',
-                                            'preparing' => '<span class="badge bg-warning text-dark">PREPARING</span>',
-                                            'ready'     => '<span class="badge bg-info text-dark">READY</span>',
-                                            'completed' => '<span class="badge bg-success">SELESAI</span>',
-                                            'cancelled' => '<span class="badge bg-dark">BATAL</span>',
-                                            default     => '<span class="badge bg-secondary">-</span>',
-                                        };
-                                        echo $statusBadge;
-                                        ?>
-                                    </td>
-                                    <td class="text-end fw-bold text-primary"><?= formatRupiah($t['total_amount']) ?></td>
-                                    <td class="text-end pe-3 pe-md-4 fw-semibold text-success">
-                                        <?= $t['order_type'] === 'kiosk' && $t['status'] === 'pending' ? '-' : formatRupiah($t['change_amount']) ?>
-                                    </td>
-                                </tr>
-                            <?php endforeach; ?>
-                            <?php if (empty($transactions)): ?>
+        <!-- TAB NAVIGATION -->
+        <ul class="nav nav-pills mb-4 gap-2 flex-wrap">
+            <li class="nav-item">
+                <a class="nav-link <?= $activeTab === 'transactions' ? 'active' : '' ?> px-3 px-md-4 fw-semibold" href="?tab=transactions">💰 Transaksi</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link <?= $activeTab === 'stock' ? 'active' : '' ?> px-3 px-md-4 fw-semibold" href="?tab=stock">📦 Mutasi Stok</a>
+            </li>
+            <?php if (hasRole('admin')): ?>
+                <li class="nav-item">
+                    <a class="nav-link <?= $activeTab === 'users' ? 'active' : '' ?> px-3 px-md-4 fw-semibold" href="?tab=users">👥 Aktivitas User</a>
+                </li>
+            <?php endif; ?>
+        </ul>
+
+        <!-- ==================== TAB: TRANSAKSI ==================== -->
+        <?php if ($activeTab === 'transactions'): ?>
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <span>💰 Riwayat Transaksi</span>
+                    <span class="badge bg-light text-dark border px-3 py-2"><?= count($transactions) ?> transaksi</span>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
                                 <tr>
-                                    <td colspan="8" class="text-center py-5 text-muted">
-                                        <div style="font-size:3rem;">📭</div>
-                                        <h6 class="fw-bold mt-3">Belum ada transaksi</h6>
-                                        <small>Transaksi kasir dan kiosk akan muncul di sini</small>
-                                    </td>
+                                    <th class="ps-3 ps-md-4">Invoice</th>
+                                    <th>Tipe</th>
+                                    <th>Pelanggan</th>
+                                    <th>Tanggal</th>
+                                    <th class="text-center">Items</th>
+                                    <th class="text-center">Status</th>
+                                    <th class="text-end">Total</th>
+                                    <th class="text-end pe-3 pe-md-4">Aksi</th>
                                 </tr>
-                            <?php endif; ?>
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($transactions as $t): ?>
+                                    <tr class="<?= $t['status'] === 'pending' ? 'table-warning' : '' ?>">
+                                        <td class="ps-3 ps-md-4">
+                                            <span class="fw-semibold font-monospace small"><?= htmlspecialchars($t['invoice_number']) ?></span>
+                                        </td>
+                                        <td>
+                                            <?php if ($t['order_type'] === 'kiosk'): ?>
+                                                <span class="badge bg-warning text-dark">🖥️ KIOSK</span>
+                                            <?php else: ?>
+                                                <span class="badge bg-secondary bg-opacity-10 text-secondary">🛒 KASIR</span>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td>
+                                            <?php if ($t['customer_name']): ?>
+                                                <div class="fw-semibold"><?= htmlspecialchars($t['customer_name']) ?></div>
+                                                <small class="text-muted">Meja <?= htmlspecialchars($t['table_number']) ?></small>
+                                            <?php else: ?>
+                                                <span class="text-muted">-</span>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td>
+                                            <div class="fw-semibold"><?= date('d M Y', strtotime($t['transaction_date'])) ?></div>
+                                            <small class="text-muted"><?= date('H:i', strtotime($t['transaction_date'])) ?></small>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge bg-secondary bg-opacity-10 text-secondary"><?= $t['item_count'] ?></span>
+                                        </td>
+                                        <td class="text-center">
+                                            <?php
+                                            $statusBadge = match ($t['status']) {
+                                                'pending'   => '<span class="badge bg-danger">PENDING</span>',
+                                                'preparing' => '<span class="badge bg-warning text-dark">DIMASAK</span>',
+                                                'ready'     => '<span class="badge bg-info text-dark">SIAP</span>',
+                                                'completed' => '<span class="badge bg-success">SELESAI</span>',
+                                                'cancelled' => '<span class="badge bg-dark">BATAL</span>',
+                                                default     => '<span class="badge bg-secondary">-</span>',
+                                            };
+                                            echo $statusBadge;
+                                            ?>
+                                        </td>
+                                        <td class="text-end fw-bold text-primary"><?= formatRupiah($t['total_amount']) ?></td>
+                                        <td class="text-end pe-3 pe-md-4">
+                                            <?php if ($t['status'] === 'pending'): ?>
+                                                <button class="btn btn-sm btn-warning fw-bold px-3" onclick="updateOrderStatus(<?= $t['id'] ?>, 'preparing')">🔥 Proses</button>
+                                            <?php elseif ($t['status'] === 'preparing'): ?>
+                                                <button class="btn btn-sm btn-info fw-bold px-3 text-white" onclick="updateOrderStatus(<?= $t['id'] ?>, 'ready')">✅ Siap</button>
+                                            <?php elseif ($t['status'] === 'ready'): ?>
+                                                <a href="index.php?process_order=<?= $t['id'] ?>" class="btn btn-sm btn-success fw-bold px-3">💰 Bayar</a>
+                                            <?php else: ?>
+                                                <span class="text-muted small">-</span>
+                                            <?php endif; ?>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                                <?php if (empty($transactions)): ?>
+                                    <tr>
+                                        <td colspan="8" class="text-center py-5 text-muted">
+                                            <div style="font-size:3rem;">📭</div>
+                                            <h6 class="fw-bold mt-3">Belum ada transaksi</h6>
+                                        </td>
+                                    </tr>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
-        </div>
+        <?php endif; ?>
+
+        <!-- ==================== TAB: MUTASI STOK ==================== -->
+        <?php if ($activeTab === 'stock'): ?>
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <span>📦 Riwayat Mutasi Stok</span>
+                    <span class="badge bg-light text-dark border px-3 py-2"><?= count($stockHistory) ?> catatan</span>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="ps-3 ps-md-4">Waktu</th>
+                                    <th>Produk</th>
+                                    <th class="text-center">Tipe</th>
+                                    <th class="text-center">Jumlah</th>
+                                    <th>Referensi</th>
+                                    <th>Catatan</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($stockHistory as $sh): ?>
+                                    <tr>
+                                        <td class="ps-3 ps-md-4">
+                                            <div class="fw-semibold"><?= date('d M Y', strtotime($sh['created_at'])) ?></div>
+                                            <small class="text-muted"><?= date('H:i', strtotime($sh['created_at'])) ?></small>
+                                        </td>
+                                        <td class="fw-semibold"><?= htmlspecialchars($sh['product_name']) ?></td>
+                                        <td class="text-center">
+                                            <?php
+                                            $typeBadge = match ($sh['type']) {
+                                                'in'         => '<span class="badge bg-success">MASUK</span>',
+                                                'out'        => '<span class="badge bg-danger">KELUAR</span>',
+                                                'adjustment' => '<span class="badge bg-warning text-dark">ADJUST</span>',
+                                            };
+                                            echo $typeBadge;
+                                            ?>
+                                        </td>
+                                        <td class="text-center fw-bold <?= $sh['type'] === 'out' ? 'text-danger' : 'text-success' ?>">
+                                            <?= $sh['type'] === 'out' ? '-' : '+' ?><?= $sh['quantity'] ?>
+                                        </td>
+                                        <td><code class="small"><?= htmlspecialchars($sh['reference'] ?? '-') ?></code></td>
+                                        <td class="text-muted small"><?= htmlspecialchars($sh['notes'] ?? '-') ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                                <?php if (empty($stockHistory)): ?>
+                                    <tr>
+                                        <td colspan="6" class="text-center py-5 text-muted">
+                                            <div style="font-size:3rem;">📦</div>
+                                            <h6 class="fw-bold mt-3">Belum ada mutasi stok</h6>
+                                        </td>
+                                    </tr>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        <?php endif; ?>
+
+        <!-- ==================== TAB: AKTIVITAS USER (Admin Only) ==================== -->
+        <?php if ($activeTab === 'users' && hasRole('admin')): ?>
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <span>👥 Data User Terdaftar</span>
+                    <span class="badge bg-light text-dark border px-3 py-2"><?= count($userActivities) ?> user</span>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="ps-3 ps-md-4">User</th>
+                                    <th>Username</th>
+                                    <th class="text-center">Role</th>
+                                    <th class="text-center">Status</th>
+                                    <th>Terdaftar</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($userActivities as $u): ?>
+                                    <tr class="<?= !$u['is_active'] ? 'table-secondary' : '' ?>">
+                                        <td class="ps-3 ps-md-4">
+                                            <div class="d-flex align-items-center gap-2">
+                                                <div style="width:36px;height:36px;border-radius:50%;background:<?= $u['role'] === 'admin' ? '#667eea' : '#10b981' ?>;display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:0.85rem;">
+                                                    <?= strtoupper(substr($u['full_name'], 0, 1)) ?>
+                                                </div>
+                                                <div class="fw-semibold"><?= htmlspecialchars($u['full_name']) ?></div>
+                                            </div>
+                                        </td>
+                                        <td class="font-monospace small"><?= htmlspecialchars($u['username']) ?></td>
+                                        <td class="text-center">
+                                            <span class="badge <?= $u['role'] === 'admin' ? 'bg-primary' : 'bg-success' ?>"><?= strtoupper($u['role']) ?></span>
+                                        </td>
+                                        <td class="text-center">
+                                            <?= $u['is_active'] ? '<span class="badge bg-success">Aktif</span>' : '<span class="badge bg-secondary">Nonaktif</span>' ?>
+                                        </td>
+                                        <td>
+                                            <div class="fw-semibold"><?= date('d M Y', strtotime($u['created_at'])) ?></div>
+                                            <small class="text-muted"><?= date('H:i', strtotime($u['created_at'])) ?></small>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        <?php endif; ?>
 
         <!-- LEGEND -->
         <div class="mt-3 d-flex flex-wrap gap-3 align-items-center">
-            <small class="text-muted fw-semibold">Legend:</small>
+            <small class="text-muted fw-semibold">Status:</small>
             <span class="badge bg-danger">PENDING</span>
-            <small class="text-muted">Belum dibayar</small>
-            <span class="badge bg-warning text-dark">PREPARING</span>
-            <small class="text-muted">Sedang disiapkan</small>
-            <span class="badge bg-info text-dark">READY</span>
-            <small class="text-muted">Siap diambil</small>
+            <span class="badge bg-warning text-dark">DIMASAK</span>
+            <span class="badge bg-info text-dark">SIAP</span>
             <span class="badge bg-success">SELESAI</span>
-            <small class="text-muted">Sudah dibayar & selesai</small>
         </div>
     </div>
 
@@ -210,6 +357,23 @@ $kioskCount = count(array_filter($transactions, fn($t) => $t['order_type'] === '
         function toggleSidebar() {
             document.getElementById('sidebar').classList.toggle('show');
             document.getElementById('sidebarOverlay').classList.toggle('show');
+        }
+
+        function updateOrderStatus(orderId, newStatus) {
+            if (!confirm('Yakin ubah status pesanan ini?')) return;
+            const formData = new FormData();
+            formData.append('order_id', orderId);
+            formData.append('status', newStatus);
+            fetch('process_order_status.php', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) location.reload();
+                    else alert('❌ ' + data.error);
+                })
+                .catch(() => alert('Terjadi kesalahan!'));
         }
     </script>
 </body>

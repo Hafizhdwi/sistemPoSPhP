@@ -48,9 +48,15 @@ $activeTab = $_GET['tab'] ?? 'products';
             <div class="role"><?= $_SESSION['role'] ?></div>
         </div>
         <nav>
-            <a href="dashboard.php" class="nav-link">📊 Dashboard</a>
+            <?php if (hasRole('admin')): ?>
+                <a href="dashboard.php" class="nav-link">📊 Dashboard</a>
+                <a href="users.php" class="nav-link">👥 User</a>
+            <?php endif; ?>
             <a href="index.php" class="nav-link">🛒 Kasir</a>
-            <a href="products.php" class="nav-link active">📦 Produk</a>
+            <?php if (hasRole('admin')): ?>
+                <a href="products.php" class="nav-link active">📦 Produk</a>
+            <?php endif; ?>
+            <a href="kitchen.php" class="nav-link">🍳 Dapur</a>
             <a href="history.php" class="nav-link">📜 Riwayat</a>
         </nav>
         <div class="sidebar-footer">

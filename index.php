@@ -12,7 +12,7 @@ $processOrder = null;
 $processItems = [];
 if (isset($_GET['process_order'])) {
     $orderId = intval($_GET['process_order']);
-    $stmt = $pdo->prepare("SELECT * FROM transactions WHERE id = ? AND status = 'pending'");
+    $stmt = $pdo->prepare("SELECT * FROM transactions WHERE id = ? AND status IN ('pending','preparing','ready')");
     $stmt->execute([$orderId]);
     $processOrder = $stmt->fetch();
 
@@ -28,12 +28,12 @@ if (isset($_GET['process_order'])) {
     }
 }
 
-// ✅ Ambil pesanan kiosk yang masih pending
+// ✅ Ambil pesanan kiosk yang masih aktif (pending, preparing, ready)
 $pendingOrders = $pdo->query("
     SELECT t.*, COUNT(td.id) as item_count 
     FROM transactions t 
     LEFT JOIN transaction_details td ON t.id = td.transaction_id 
-    WHERE t.status = 'pending' AND t.order_type = 'kiosk'
+    WHERE t.status IN ('pending', 'preparing', 'ready') AND t.order_type = 'kiosk'
     GROUP BY t.id 
     ORDER BY t.transaction_date ASC
 ")->fetchAll();
@@ -57,6 +57,7 @@ if (isset($_GET['success'])) {
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="assets/style.css">
     <style>
+        /* Search */
         .search-wrapper {
             position: relative;
             margin-bottom: 20px;
@@ -140,6 +141,18 @@ if (isset($_GET['success'])) {
         .pending-panel {
             border-left: 5px solid #e63946 !important;
         }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(150%);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
     </style>
 </head>
 
@@ -155,11 +168,13 @@ if (isset($_GET['success'])) {
         <nav>
             <?php if (hasRole('admin')): ?>
                 <a href="dashboard.php" class="nav-link">📊 Dashboard</a>
+                <a href="users.php" class="nav-link">👥 User</a>
             <?php endif; ?>
             <a href="index.php" class="nav-link active">🛒 Kasir</a>
             <?php if (hasRole('admin')): ?>
                 <a href="products.php" class="nav-link">📦 Produk</a>
             <?php endif; ?>
+            <a href="kitchen.php" class="nav-link">🍳 Dapur</a>
             <a href="history.php" class="nav-link">📜 Riwayat</a>
         </nav>
         <div class="sidebar-footer">
@@ -191,20 +206,20 @@ if (isset($_GET['success'])) {
             </div>
         <?php endif; ?>
 
-        <!-- ✅ ALERT JIKA SEDANG PROSES PESANAN KIOSK -->
+        <!-- ALERT PROSES PESANAN KIOSK -->
         <?php if ($processOrder): ?>
             <div class="alert alert-info shadow-sm d-flex justify-content-between align-items-center flex-wrap gap-2">
-                <span>🖥️ <strong>Memproses Pesanan Kiosk</strong> — <?= htmlspecialchars($processOrder['customer_name']) ?> | Meja <?= htmlspecialchars($processOrder['table_number']) ?> | Invoice: <code><?= $processOrder['invoice_number'] ?></code></span>
+                <span>🖥️ <strong>Memproses Pesanan Kiosk</strong> — <?= htmlspecialchars($processOrder['customer_name']) ?> | Meja <?= htmlspecialchars($processOrder['table_number']) ?> | <code><?= $processOrder['invoice_number'] ?></code></span>
                 <a href="index.php" class="btn btn-sm btn-outline-secondary fw-bold">✕ Batal</a>
             </div>
         <?php endif; ?>
 
-        <!-- ✅ PANEL PESANAN KIOSK PENDING -->
+        <!-- PANEL PESANAN KIOSK AKTIF -->
         <?php if (!empty($pendingOrders)): ?>
             <div class="card border-0 shadow-sm mb-4 pending-panel">
                 <div class="card-body p-3 p-md-4">
                     <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-                        <h5 class="fw-bold m-0 text-danger">🔔 Pesanan Kiosk Pending (<?= count($pendingOrders) ?>)</h5>
+                        <h5 class="fw-bold m-0 text-danger">🔔 Pesanan Kiosk Aktif (<?= count($pendingOrders) ?>)</h5>
                         <span class="badge bg-danger px-3 py-2">Perlu Diproses</span>
                     </div>
                     <div class="table-responsive">
@@ -214,9 +229,9 @@ if (isset($_GET['success'])) {
                                     <th>Antrian</th>
                                     <th>Pelanggan</th>
                                     <th>Meja</th>
+                                    <th>Status</th>
                                     <th>Items</th>
                                     <th>Total</th>
-                                    <th>Waktu</th>
                                     <th class="text-center">Aksi</th>
                                 </tr>
                             </thead>
@@ -226,14 +241,30 @@ if (isset($_GET['success'])) {
                                         <td><span class="badge bg-warning text-dark fw-bold px-3 py-2">#<?= str_pad($order['id'], 3, '0', STR_PAD_LEFT) ?></span></td>
                                         <td class="fw-semibold"><?= htmlspecialchars($order['customer_name']) ?></td>
                                         <td><?= htmlspecialchars($order['table_number']) ?></td>
+                                        <td>
+                                            <?php
+                                            $badge = match ($order['status']) {
+                                                'pending' => '<span class="badge bg-danger">PENDING</span>',
+                                                'preparing' => '<span class="badge bg-warning text-dark">DIMASAK</span>',
+                                                'ready' => '<span class="badge bg-success">SIAP</span>',
+                                                default => '<span class="badge bg-secondary">-</span>'
+                                            };
+                                            echo $badge;
+                                            ?>
+                                        </td>
                                         <td><span class="badge bg-secondary bg-opacity-10 text-secondary"><?= $order['item_count'] ?> item</span></td>
                                         <td class="fw-bold text-primary"><?= formatRupiah($order['total_amount']) ?></td>
-                                        <td><small class="text-muted"><?= date('H:i', strtotime($order['transaction_date'])) ?></small></td>
                                         <td class="text-center">
-                                            <a href="index.php?process_order=<?= $order['id'] ?>"
-                                                class="btn btn-sm btn-success fw-bold px-4 py-2">
-                                                💰 Bayar
-                                            </a>
+                                            <?php if ($order['status'] === 'ready'): ?>
+                                                <a href="index.php?process_order=<?= $order['id'] ?>"
+                                                    class="btn btn-sm btn-success fw-bold px-4 py-2">
+                                                    💰 Bayar
+                                                </a>
+                                            <?php else: ?>
+                                                <span class="badge bg-secondary bg-opacity-10 text-secondary px-3 py-2">
+                                                    <?= $order['status'] === 'pending' ? '⏳ Menunggu' : '🔥 Dimasak' ?>
+                                                </span>
+                                            <?php endif; ?>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
@@ -322,7 +353,6 @@ if (isset($_GET['success'])) {
 
                         <form id="checkout-form" action="process_sale.php" method="POST">
                             <input type="hidden" name="cart_data" id="cart-data">
-                            <!-- ✅ Hidden field untuk kiosk order ID -->
                             <?php if ($processOrder): ?>
                                 <input type="hidden" name="kiosk_order_id" value="<?= $processOrder['id'] ?>">
                             <?php endif; ?>
@@ -358,14 +388,12 @@ if (isset($_GET['success'])) {
             const query = this.value.toLowerCase().trim();
             let visibleCount = 0;
             searchClear.style.display = query.length > 0 ? 'block' : 'none';
-
             productCols.forEach(col => {
                 const name = col.getAttribute('data-name');
                 const match = name.includes(query);
                 col.style.display = match ? '' : 'none';
                 if (match) visibleCount++;
             });
-
             noResults.classList.toggle('show', visibleCount === 0 && query.length > 0);
             productCount.textContent = visibleCount + ' produk';
         });
@@ -452,7 +480,7 @@ if (isset($_GET['success'])) {
             document.getElementById('btn-checkout').disabled = cart.length === 0;
         }
 
-        // ==================== ✅ AUTO-LOAD CART DARI PESANAN KIOSK ====================
+        // ==================== AUTO-LOAD CART DARI PESANAN KIOSK ====================
         <?php if ($processOrder && !empty($processItems)): ?>
                 (function() {
                     <?php foreach ($processItems as $item): ?>
@@ -464,8 +492,6 @@ if (isset($_GET['success'])) {
                         });
                     <?php endforeach; ?>
                     renderCart();
-
-                    // Auto-focus ke input uang diterima
                     setTimeout(() => {
                         document.querySelector('[name="pay_amount"]').focus();
                         document.querySelector('[name="pay_amount"]').scrollIntoView({
@@ -475,6 +501,80 @@ if (isset($_GET['success'])) {
                     }, 500);
                 })();
         <?php endif; ?>
+
+        // ==================== AUTO-POLLING PESANAN KIOSK BARU ====================
+        let knownPendingIds = <?= json_encode(array_column($pendingOrders, 'id')) ?>;
+
+        setInterval(function() {
+            fetch('index.php?ajax_pending=1')
+                .then(r => r.text())
+                .then(html => {
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    const newPanel = doc.querySelector('.pending-panel');
+                    const existingPanel = document.querySelector('.pending-panel');
+
+                    // Extract IDs dari panel baru
+                    const newIds = [];
+                    if (newPanel) {
+                        newPanel.querySelectorAll('a[href*="process_order"]').forEach(link => {
+                            const id = parseInt(link.getAttribute('href').split('=')[1]);
+                            newIds.push(id);
+                        });
+                    }
+
+                    // Cek order baru
+                    const hasNew = newIds.some(id => !knownPendingIds.includes(id));
+                    if (hasNew) {
+                        playCashierAlert();
+                        showCashierToast();
+                    }
+
+                    // Update panel
+                    if (newPanel && !existingPanel) {
+                        const mobileHeader = document.querySelector('.mobile-header');
+                        if (mobileHeader) mobileHeader.insertAdjacentElement('afterend', newPanel);
+                    } else if (newPanel && existingPanel) {
+                        existingPanel.outerHTML = newPanel.outerHTML;
+                    } else if (!newPanel && existingPanel) {
+                        existingPanel.remove();
+                    }
+
+                    knownPendingIds = newIds;
+                })
+                .catch(() => {});
+        }, 5000);
+
+        function playCashierAlert() {
+            try {
+                const ctx = new(window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.frequency.value = 600;
+                osc.type = 'sine';
+                gain.gain.setValueAtTime(0.3, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.8);
+                osc.start(ctx.currentTime);
+                osc.stop(ctx.currentTime + 0.8);
+            } catch (e) {}
+        }
+
+        function showCashierToast() {
+            let toast = document.getElementById('cashierToast');
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.id = 'cashierToast';
+                toast.style.cssText = 'position:fixed;top:20px;right:20px;background:#e63946;color:white;padding:16px 24px;border-radius:12px;font-weight:700;z-index:9999;box-shadow:0 8px 30px rgba(230,57,70,0.4);animation:slideIn 0.3s ease;';
+                document.body.appendChild(toast);
+            }
+            toast.textContent = '🔔 Pesanan kiosk baru masuk!';
+            toast.style.display = 'block';
+            setTimeout(() => {
+                toast.style.display = 'none';
+            }, 4000);
+        }
     </script>
 </body>
 

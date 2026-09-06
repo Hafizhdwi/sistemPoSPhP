@@ -1,3 +1,3 @@
 <?php
-require_once 'config/auth.php';
-logoutUser();
+require_once 'config/database.php';
+logoutUser($pdo);

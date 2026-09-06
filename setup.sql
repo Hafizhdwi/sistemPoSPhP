@@ -1,6 +1,6 @@
 -- ============================================
 -- MINI POS SYSTEM - FULL DATABASE SETUP (FINAL)
--- Termasuk: Login, Inventory, Kiosk
+-- Termasuk: Login, Inventory, Kiosk, Activity Logs
 -- ============================================
 
 DROP DATABASE IF EXISTS db_mini_pos;
@@ -34,7 +34,6 @@ CREATE TABLE products (
 
 -- =====================
 -- TABEL TRANSAKSI HEADER
--- Termasuk: order_type (kasir/kiosk), status, customer info
 -- =====================
 CREATE TABLE transactions (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -77,9 +76,29 @@ CREATE TABLE stock_history (
 ) ENGINE=InnoDB;
 
 -- =====================
+-- ✅ BARU: TABEL ACTIVITY LOGS
+-- Mencatat semua aktivitas sistem (login, logout, dll)
+-- =====================
+CREATE TABLE activity_logs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    action VARCHAR(50) NOT NULL COMMENT 'login_success, login_failed, logout, etc',
+    entity_type VARCHAR(50) DEFAULT NULL COMMENT 'user, product, transaction',
+    entity_id INT DEFAULT NULL COMMENT 'ID of related entity',
+    description TEXT DEFAULT NULL,
+    ip_address VARCHAR(45) DEFAULT NULL,
+    user_agent VARCHAR(255) DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_action (action),
+    INDEX idx_created (created_at),
+    INDEX idx_entity (entity_type, entity_id)
+) ENGINE=InnoDB;
+
+-- =====================
 -- DATA USER DEFAULT
 -- admin / admin123
 -- kasir1 / kasir123
+-- ⚠️ Hash di-generate dengan password_hash() PHP
+-- Jika login gagal, jalankan generate_hash.php untuk buat hash baru
 -- =====================
 INSERT INTO users (username, password_hash, full_name, role, is_active) VALUES 
 ('admin', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Administrator', 'admin', 1),
@@ -104,3 +123,9 @@ INSERT INTO stock_history (product_id, type, quantity, reference, notes) VALUES
 (3, 'adjustment', 20, 'INITIAL', 'Stok awal produk baru'),
 (4, 'adjustment', 100, 'INITIAL', 'Stok awal produk baru'),
 (5, 'adjustment', 30, 'INITIAL', 'Stok awal produk baru');
+
+-- =====================
+-- DATA AWAL ACTIVITY LOG
+-- =====================
+INSERT INTO activity_logs (action, entity_type, entity_id, description, ip_address) VALUES 
+('system_init', NULL, NULL, 'Database initialized with default data', '127.0.0.1');

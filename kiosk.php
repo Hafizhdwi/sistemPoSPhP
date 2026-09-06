@@ -195,6 +195,7 @@ $products = $stmt->fetchAll();
             color: white;
         }
 
+        /* ORDER MODAL */
         .order-modal-overlay {
             position: fixed;
             inset: 0;
@@ -237,24 +238,89 @@ $products = $stmt->fetchAll();
             align-items: center;
             padding: 12px 0;
             border-bottom: 1px solid #eee;
+            gap: 10px;
+        }
+
+        .order-item .oi-info {
+            flex: 1;
+            min-width: 0;
         }
 
         .order-item .oi-name {
             font-weight: 700;
             font-size: 0.9rem;
+            margin-bottom: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
-        .order-item .oi-detail {
-            font-size: 0.8rem;
-            color: #666;
+        .order-item .oi-price-unit {
+            font-size: 0.75rem;
+            color: #999;
         }
 
-        .order-item .oi-price {
+        .order-item .oi-qty-control {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        .order-item .oi-qty-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: 2px solid var(--primary);
+            background: white;
+            color: var(--primary);
+            font-weight: 800;
+            font-size: 1.1rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            padding: 0;
+            line-height: 1;
+        }
+
+        .order-item .oi-qty-btn:hover {
+            background: var(--primary);
+            color: white;
+        }
+
+        .order-item .oi-qty-btn:active {
+            transform: scale(0.9);
+        }
+
+        .order-item .oi-qty-btn.delete {
+            border-color: #ef4444;
+            color: #ef4444;
+        }
+
+        .order-item .oi-qty-btn.delete:hover {
+            background: #ef4444;
+            color: white;
+        }
+
+        .order-item .oi-qty {
+            font-weight: 800;
+            font-size: 1rem;
+            min-width: 24px;
+            text-align: center;
+        }
+
+        .order-item .oi-subtotal {
             font-weight: 800;
             color: var(--primary);
+            font-size: 0.9rem;
+            min-width: 80px;
+            text-align: right;
+            flex-shrink: 0;
         }
 
-        /* ✅ PAYMENT METHOD SELECTOR */
+        /* PAYMENT OPTIONS */
         .payment-options {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -301,7 +367,6 @@ $products = $stmt->fetchAll();
             margin-top: 2px;
         }
 
-        /* QRIS Info Box */
         .qris-info {
             background: #f0fdf4;
             border: 2px solid #86efac;
@@ -351,6 +416,208 @@ $products = $stmt->fetchAll();
             transform: scale(0.98);
         }
 
+        .btn-cancel {
+            background: #f3f4f6;
+            color: #6b7280;
+            border: 2px solid #e5e7eb;
+            width: 100%;
+            padding: 14px;
+            border-radius: 16px;
+            font-size: 1rem;
+            font-weight: 700;
+            margin-top: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-cancel:hover {
+            background: #fef2f2;
+            border-color: #ef4444;
+            color: #ef4444;
+        }
+
+        .btn-cancel:active {
+            transform: scale(0.98);
+        }
+
+        /* INPUT FIELDS */
+        .kiosk-input {
+            border-radius: 12px !important;
+            font-weight: 600;
+            border: 2px solid #e5e7eb;
+            padding: 12px 16px;
+            font-size: 1rem;
+            transition: all 0.2s;
+        }
+
+        .kiosk-input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(230, 57, 70, 0.15);
+            outline: none;
+        }
+
+        .kiosk-input.is-invalid {
+            border-color: #ef4444;
+            background: #fef2f2;
+        }
+
+        .input-hint {
+            font-size: 0.7rem;
+            color: #999;
+            margin-top: 4px;
+            display: block;
+        }
+
+        .empty-cart-modal {
+            text-align: center;
+            padding: 30px 20px;
+            color: #999;
+        }
+
+        .empty-cart-modal .icon {
+            font-size: 3rem;
+            margin-bottom: 10px;
+        }
+
+        /* ✅ CUSTOM CONFIRM MODAL */
+        .confirm-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            z-index: 500;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            opacity: 0;
+            transition: opacity 0.25s ease;
+        }
+
+        .confirm-overlay.show {
+            display: flex;
+            opacity: 1;
+        }
+
+        .confirm-box {
+            background: white;
+            color: var(--dark);
+            width: 100%;
+            max-width: 380px;
+            border-radius: 24px;
+            padding: 36px 28px 28px;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            animation: confirmPop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        @keyframes confirmPop {
+            0% {
+                transform: scale(0.5);
+                opacity: 0;
+            }
+
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .confirm-icon {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            font-size: 2.5rem;
+            background: #fef2f2;
+            border: 3px solid #fecaca;
+            animation: iconPulse 0.6s ease;
+        }
+
+        @keyframes iconPulse {
+            0% {
+                transform: scale(0);
+            }
+
+            50% {
+                transform: scale(1.2);
+            }
+
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        .confirm-title {
+            font-weight: 900;
+            font-size: 1.3rem;
+            margin-bottom: 8px;
+            color: var(--dark);
+        }
+
+        .confirm-message {
+            font-size: 0.9rem;
+            color: #6b7280;
+            margin-bottom: 6px;
+            line-height: 1.5;
+        }
+
+        .confirm-detail {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            border-radius: 12px;
+            padding: 12px;
+            margin: 16px 0;
+            font-size: 0.8rem;
+            color: #991b1b;
+            font-weight: 600;
+        }
+
+        .confirm-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .confirm-btn {
+            flex: 1;
+            padding: 14px;
+            border-radius: 14px;
+            font-weight: 800;
+            font-size: 0.95rem;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+        }
+
+        .confirm-btn:active {
+            transform: scale(0.96);
+        }
+
+        .confirm-btn-cancel {
+            background: #f3f4f6;
+            color: #374151;
+            border: 2px solid #e5e7eb;
+        }
+
+        .confirm-btn-cancel:hover {
+            background: #e5e7eb;
+        }
+
+        .confirm-btn-yes {
+            background: #ef4444;
+            color: white;
+        }
+
+        .confirm-btn-yes:hover {
+            background: #dc2626;
+        }
+
+        /* SUCCESS SCREEN */
         .success-screen {
             position: fixed;
             inset: 0;
@@ -389,6 +656,24 @@ $products = $stmt->fetchAll();
             }
         }
 
+        @keyframes shake {
+
+            0%,
+            100% {
+                transform: translateX(0);
+            }
+
+            20%,
+            60% {
+                transform: translateX(-8px);
+            }
+
+            40%,
+            80% {
+                transform: translateX(8px);
+            }
+        }
+
         @media (min-width: 768px) {
             .kiosk-grid {
                 grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -413,6 +698,31 @@ $products = $stmt->fetchAll();
 
             .order-modal-overlay {
                 align-items: center;
+            }
+        }
+
+        @media (max-width: 400px) {
+            .order-item {
+                flex-wrap: wrap;
+            }
+
+            .order-item .oi-info {
+                width: 100%;
+                margin-bottom: 8px;
+            }
+
+            .order-item .oi-subtotal {
+                width: 100%;
+                text-align: left;
+                margin-top: 4px;
+            }
+
+            .confirm-box {
+                padding: 28px 20px 20px;
+            }
+
+            .confirm-buttons {
+                flex-direction: column;
             }
         }
     </style>
@@ -460,7 +770,7 @@ $products = $stmt->fetchAll();
     <div class="order-modal-overlay" id="orderModal" onclick="closeOrderModal(event)">
         <div class="order-modal" onclick="event.stopPropagation()">
             <h3 style="font-weight:900; margin-bottom:5px;">📋 Review Pesanan</h3>
-            <p class="text-muted small mb-3">Periksa pesanan dan pilih metode pembayaran</p>
+            <p class="text-muted small mb-3">Periksa pesanan, atur jumlah, dan pilih metode pembayaran</p>
 
             <div id="orderItems"></div>
 
@@ -469,7 +779,6 @@ $products = $stmt->fetchAll();
                 <span style="font-weight:900; font-size:1.4rem; color:var(--primary);" id="modalTotal">Rp 0</span>
             </div>
 
-            <!-- ✅ PAYMENT METHOD -->
             <label class="form-label fw-bold mt-3 mb-2">💳 Metode Pembayaran</label>
             <div class="payment-options">
                 <div class="pay-option selected" onclick="selectPayment('kasir', this)">
@@ -494,14 +803,12 @@ $products = $stmt->fetchAll();
                 </div>
             </div>
 
-            <!-- QRIS INFO (muncul saat pilih QRIS) -->
             <div class="qris-info" id="qrisInfo">
                 <strong>📱 Scan QRIS untuk membayar</strong>
                 <div class="qr-placeholder">📷</div>
                 <small class="text-muted">Tunjukkan bukti pembayaran ke kasir</small>
             </div>
 
-            <!-- TRANSFER INFO -->
             <div class="qris-info" id="transferInfo" style="background:#eff6ff; border-color:#93c5fd;">
                 <strong>🏦 Transfer ke:</strong>
                 <div style="font-size:1.3rem; font-weight:900; margin:8px 0; letter-spacing:2px;">1234-5678-90</div>
@@ -513,15 +820,43 @@ $products = $stmt->fetchAll();
 
             <div class="row g-2 mt-2">
                 <div class="col-6">
-                    <input type="text" id="customerName" class="form-control form-control-lg" placeholder="Nama Anda" style="border-radius:12px; font-weight:600;">
+                    <label class="form-label fw-semibold small text-muted mb-1">Nama Anda</label>
+                    <input type="text" id="customerName" class="form-control form-control-lg kiosk-input"
+                        placeholder="Contoh: Budi" inputmode="text" autocomplete="off"
+                        autocapitalize="words" maxlength="50" required>
+                    <small class="input-hint">Masukkan nama pemesan</small>
                 </div>
                 <div class="col-6">
-                    <input type="text" id="tableNumber" class="form-control form-control-lg" placeholder="No. Meja" style="border-radius:12px; font-weight:600;">
+                    <label class="form-label fw-semibold small text-muted mb-1">No. Meja</label>
+                    <input type="text" id="tableNumber" class="form-control form-control-lg kiosk-input"
+                        placeholder="Contoh: 01 / A1 / VIP" inputmode="text" autocomplete="off"
+                        maxlength="10" required>
+                    <small class="input-hint">Bisa angka/huruf (01, A1, VIP)</small>
                 </div>
             </div>
 
             <button class="btn-order" id="btnOrder" onclick="submitOrder()" disabled>🚀 KIRIM PESANAN</button>
-            <button class="btn-order mt-2" style="background:#6c757d;" onclick="closeOrderModalDirect()">Batal</button>
+            <button class="btn-cancel" onclick="cancelOrder()">❌ Batal & Hapus Semua Pesanan</button>
+        </div>
+    </div>
+
+    <!-- ✅ CUSTOM CONFIRM MODAL -->
+    <div class="confirm-overlay" id="confirmOverlay">
+        <div class="confirm-box">
+            <div class="confirm-icon" id="confirmIcon">⚠️</div>
+            <div class="confirm-title" id="confirmTitle">Batalkan Pesanan?</div>
+            <div class="confirm-message" id="confirmMessage">
+                Semua item yang sudah Anda pilih akan dihapus dan tidak bisa dikembalikan.
+            </div>
+            <div class="confirm-detail" id="confirmDetail"></div>
+            <div class="confirm-buttons">
+                <button class="confirm-btn confirm-btn-cancel" onclick="hideConfirm()">
+                    Kembali
+                </button>
+                <button class="confirm-btn confirm-btn-yes" id="confirmYesBtn" onclick="">
+                    Ya, Batalkan
+                </button>
+            </div>
         </div>
     </div>
 
@@ -538,6 +873,56 @@ $products = $stmt->fetchAll();
         let cart = {};
         let selectedPaymentMethod = 'kasir';
 
+        // ==================== CONFIRM MODAL ====================
+        function showConfirm({
+            icon,
+            title,
+            message,
+            detail,
+            yesText,
+            yesAction
+        }) {
+            document.getElementById('confirmIcon').textContent = icon || '⚠️';
+            document.getElementById('confirmTitle').textContent = title || 'Konfirmasi';
+            document.getElementById('confirmMessage').textContent = message || 'Apakah Anda yakin?';
+
+            const detailEl = document.getElementById('confirmDetail');
+            if (detail) {
+                detailEl.innerHTML = detail;
+                detailEl.style.display = 'block';
+            } else {
+                detailEl.style.display = 'none';
+            }
+
+            const yesBtn = document.getElementById('confirmYesBtn');
+            yesBtn.textContent = yesText || 'Ya';
+            yesBtn.onclick = function() {
+                hideConfirm();
+                if (yesAction) yesAction();
+            };
+
+            const overlay = document.getElementById('confirmOverlay');
+            overlay.style.display = 'flex';
+            // Trigger reflow agar animasi jalan
+            requestAnimationFrame(() => {
+                overlay.classList.add('show');
+            });
+        }
+
+        function hideConfirm() {
+            const overlay = document.getElementById('confirmOverlay');
+            overlay.classList.remove('show');
+            setTimeout(() => {
+                overlay.style.display = 'none';
+            }, 250);
+        }
+
+        // Tutup confirm modal saat klik overlay
+        document.getElementById('confirmOverlay').addEventListener('click', function(e) {
+            if (e.target === this) hideConfirm();
+        });
+
+        // ==================== PRODUCT & CART ====================
         function toggleItem(el) {
             const id = el.dataset.id;
             if (cart[id]) cart[id].qty++;
@@ -574,6 +959,63 @@ $products = $stmt->fetchAll();
             totalQty > 0 ? fc.classList.add('show') : fc.classList.remove('show');
         }
 
+        function updateItemQty(id, delta) {
+            if (!cart[id]) return;
+            cart[id].qty += delta;
+            if (cart[id].qty <= 0) delete cart[id];
+            updateUI();
+            refreshOrderModal();
+        }
+
+        function refreshOrderModal() {
+            const container = document.getElementById('orderItems');
+            const entries = Object.entries(cart).filter(([id, item]) => item.qty > 0);
+
+            if (entries.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-cart-modal">
+                        <div class="icon">🛒</div>
+                        <h6 class="fw-bold">Keranjang kosong</h6>
+                        <p class="small mb-0">Pilih produk untuk memulai pesanan</p>
+                    </div>`;
+                document.getElementById('modalTotal').textContent = 'Rp 0';
+                document.getElementById('btnOrder').disabled = true;
+                return;
+            }
+
+            let total = 0;
+            container.innerHTML = '';
+
+            entries.forEach(([id, item]) => {
+                const sub = item.price * item.qty;
+                total += sub;
+                container.innerHTML += `
+                    <div class="order-item">
+                        <div class="oi-info">
+                            <div class="oi-name">${item.name}</div>
+                            <div class="oi-price-unit">${item.price.toLocaleString('id-ID',{style:'currency',currency:'IDR',minimumFractionDigits:0})} / item</div>
+                        </div>
+                        <div class="oi-qty-control">
+                            <button class="oi-qty-btn ${item.qty <= 1 ? 'delete' : ''}"
+                                    onclick="updateItemQty('${id}', -1)"
+                                    title="${item.qty <= 1 ? 'Hapus item' : 'Kurangi'}">
+                                ${item.qty <= 1 ? '🗑' : '−'}
+                            </button>
+                            <span class="oi-qty">${item.qty}</span>
+                            <button class="oi-qty-btn" onclick="updateItemQty('${id}', 1)" title="Tambah">+</button>
+                        </div>
+                        <div class="oi-subtotal">${sub.toLocaleString('id-ID',{style:'currency',currency:'IDR',minimumFractionDigits:0})}</div>
+                    </div>`;
+            });
+
+            document.getElementById('modalTotal').textContent = total.toLocaleString('id-ID', {
+                style: 'currency',
+                currency: 'IDR',
+                minimumFractionDigits: 0
+            });
+            checkOrderBtn();
+        }
+
         function filterCategory(cat, btn) {
             document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
@@ -582,68 +1024,148 @@ $products = $stmt->fetchAll();
             });
         }
 
-        // ✅ PAYMENT METHOD SELECTION
         function selectPayment(method, el) {
             selectedPaymentMethod = method;
             document.getElementById('selectedPayment').value = method;
             document.querySelectorAll('.pay-option').forEach(o => o.classList.remove('selected'));
             el.classList.add('selected');
-
-            // Show/hide info boxes
             document.getElementById('qrisInfo').classList.toggle('show', method === 'qris');
             document.getElementById('transferInfo').classList.toggle('show', method === 'transfer');
         }
 
         function openOrderModal() {
-            const container = document.getElementById('orderItems');
-            container.innerHTML = '';
-            let total = 0;
-            Object.entries(cart).forEach(([id, item]) => {
-                if (item.qty <= 0) return;
-                const sub = item.price * item.qty;
-                total += sub;
-                container.innerHTML += `<div class="order-item">
-            <div><div class="oi-name">${item.name}</div><div class="oi-detail">${item.qty}x ${item.price.toLocaleString('id-ID')}</div></div>
-            <div class="oi-price">${sub.toLocaleString('id-ID',{style:'currency',currency:'IDR',minimumFractionDigits:0})}</div>
-        </div>`;
-            });
-            document.getElementById('modalTotal').textContent = total.toLocaleString('id-ID', {
-                style: 'currency',
-                currency: 'IDR',
-                minimumFractionDigits: 0
-            });
+            refreshOrderModal();
             document.getElementById('orderModal').classList.add('show');
             checkOrderBtn();
+            setTimeout(() => {
+                document.getElementById('customerName').focus();
+            }, 300);
         }
 
         function closeOrderModal(e) {
-            if (e.target === document.getElementById('orderModal')) document.getElementById('orderModal').classList.remove('show');
+            if (e.target === document.getElementById('orderModal'))
+                document.getElementById('orderModal').classList.remove('show');
         }
 
-        function closeOrderModalDirect() {
-            document.getElementById('orderModal').classList.remove('show');
+        // ✅ CANCEL ORDER - Custom Confirm Modal
+        function cancelOrder() {
+            const entries = Object.entries(cart).filter(([id, item]) => item.qty > 0);
+
+            if (entries.length === 0) {
+                document.getElementById('orderModal').classList.remove('show');
+                return;
+            }
+
+            // Hitung total item & total harga
+            let totalQty = 0,
+                totalPrice = 0;
+            entries.forEach(([id, item]) => {
+                totalQty += item.qty;
+                totalPrice += item.price * item.qty;
+            });
+
+            const itemList = entries.map(([id, item]) => `${item.qty}x ${item.name}`).join('<br>');
+
+            showConfirm({
+                icon: '🗑️',
+                title: 'Batalkan Pesanan?',
+                message: 'Semua item yang sudah Anda pilih akan dihapus dan tidak bisa dikembalikan.',
+                detail: `
+                    <div style="text-align:left; margin-bottom:8px;">
+                        ${itemList}
+                    </div>
+                    <div style="border-top:1px dashed #fecaca; padding-top:8px; text-align:right;">
+                        <strong>${totalQty} item</strong> — ${totalPrice.toLocaleString('id-ID',{style:'currency',currency:'IDR',minimumFractionDigits:0})}
+                    </div>
+                `,
+                yesText: '🗑️ Ya, Hapus Semua',
+                yesAction: function() {
+                    resetCart();
+                    document.getElementById('orderModal').classList.remove('show');
+                }
+            });
         }
 
-        document.getElementById('customerName').addEventListener('input', checkOrderBtn);
-        document.getElementById('tableNumber').addEventListener('input', checkOrderBtn);
+        function resetCart() {
+            cart = {};
+            updateUI();
+            document.getElementById('customerName').value = '';
+            document.getElementById('tableNumber').value = '';
+            document.getElementById('customerName').classList.remove('is-invalid');
+            document.getElementById('tableNumber').classList.remove('is-invalid');
+            selectedPaymentMethod = 'kasir';
+            document.getElementById('selectedPayment').value = 'kasir';
+            document.querySelectorAll('.pay-option').forEach((o, i) => o.classList.toggle('selected', i === 0));
+            document.getElementById('qrisInfo').classList.remove('show');
+            document.getElementById('transferInfo').classList.remove('show');
+            document.getElementById('btnOrder').disabled = true;
+            document.getElementById('btnOrder').textContent = '🚀 KIRIM PESANAN';
+        }
+
+        // ==================== INPUT HANDLING ====================
+        const customerNameInput = document.getElementById('customerName');
+        const tableNumberInput = document.getElementById('tableNumber');
+
+        customerNameInput.addEventListener('input', function() {
+            this.classList.remove('is-invalid');
+            checkOrderBtn();
+        });
+        tableNumberInput.addEventListener('input', function() {
+            this.classList.remove('is-invalid');
+            checkOrderBtn();
+        });
+
+        [customerNameInput, tableNumberInput].forEach(input => {
+            input.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (this.id === 'customerName') tableNumberInput.focus();
+                    else if (!document.getElementById('btnOrder').disabled) submitOrder();
+                }
+            });
+        });
 
         function checkOrderBtn() {
-            const name = document.getElementById('customerName').value.trim();
-            const table = document.getElementById('tableNumber').value.trim();
-            document.getElementById('btnOrder').disabled = !(name && table);
+            const name = customerNameInput.value.trim();
+            const table = tableNumberInput.value.trim();
+            const hasItems = Object.keys(cart).some(id => cart[id].qty > 0);
+            document.getElementById('btnOrder').disabled = !(name && table && hasItems);
         }
 
+        // ==================== SUBMIT ORDER ====================
         function submitOrder() {
-            const name = document.getElementById('customerName').value.trim();
-            const table = document.getElementById('tableNumber').value.trim();
-            if (!name || !table) return;
+            const name = customerNameInput.value.trim();
+            const table = tableNumberInput.value.trim();
+
+            let hasError = false;
+            if (!name) {
+                customerNameInput.classList.add('is-invalid');
+                customerNameInput.focus();
+                hasError = true;
+            }
+            if (!table) {
+                tableNumberInput.classList.add('is-invalid');
+                if (!hasError) tableNumberInput.focus();
+                hasError = true;
+            }
+            if (hasError) {
+                if (!name) shakeElement(customerNameInput);
+                if (!table) shakeElement(tableNumberInput);
+                return;
+            }
+
+            const cartItems = Object.entries(cart).filter(([id, item]) => item.qty > 0);
+            if (cartItems.length === 0) {
+                alert('Keranjang kosong!');
+                return;
+            }
 
             const btn = document.getElementById('btnOrder');
             btn.disabled = true;
             btn.textContent = '⏳ Mengirim...';
 
             const formData = new FormData();
-            formData.append('cart_data', JSON.stringify(Object.entries(cart).map(([id, item]) => ({
+            formData.append('cart_data', JSON.stringify(cartItems.map(([id, item]) => ({
                 id: parseInt(id),
                 name: item.name,
                 price: item.price,
@@ -662,8 +1184,6 @@ $products = $stmt->fetchAll();
                     if (data.success) {
                         document.getElementById('orderModal').classList.remove('show');
                         document.getElementById('queueNumber').textContent = '#' + data.queue;
-
-                        // Pesan sukses berbeda per metode bayar
                         const msgs = {
                             'kasir': '💰 Silakan bayar di kasir',
                             'qris': '📱 Tunjukkan bukti scan ke kasir',
@@ -671,22 +1191,10 @@ $products = $stmt->fetchAll();
                             'ewallet': '💜 Tunjukkan bukti bayar ke kasir'
                         };
                         document.getElementById('successMessage').textContent = msgs[selectedPaymentMethod] || 'Silakan bayar di kasir';
-
                         document.getElementById('successScreen').classList.add('show');
                         setTimeout(() => {
-                            cart = {};
-                            updateUI();
-                            document.getElementById('customerName').value = '';
-                            document.getElementById('tableNumber').value = '';
+                            resetCart();
                             document.getElementById('successScreen').classList.remove('show');
-                            btn.disabled = false;
-                            btn.textContent = '🚀 KIRIM PESANAN';
-                            // Reset payment to kasir
-                            selectedPaymentMethod = 'kasir';
-                            document.getElementById('selectedPayment').value = 'kasir';
-                            document.querySelectorAll('.pay-option').forEach((o, i) => o.classList.toggle('selected', i === 0));
-                            document.getElementById('qrisInfo').classList.remove('show');
-                            document.getElementById('transferInfo').classList.remove('show');
                         }, 5000);
                     } else {
                         alert('❌ ' + data.error);
@@ -699,6 +1207,13 @@ $products = $stmt->fetchAll();
                     btn.disabled = false;
                     btn.textContent = '🚀 KIRIM PESANAN';
                 });
+        }
+
+        function shakeElement(el) {
+            el.style.animation = 'none';
+            setTimeout(() => {
+                el.style.animation = 'shake 0.4s ease';
+            }, 10);
         }
     </script>
 </body>
