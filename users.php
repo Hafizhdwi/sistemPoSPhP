@@ -2,7 +2,21 @@
 require_once 'config/database.php';
 requireAdmin();
 
-$stmt = $pdo->query("SELECT * FROM users ORDER BY role ASC, full_name ASC");
+// ==================== PAGINATION SETUP ====================
+$perPage = 10;
+$page = max(1, intval($_GET['page'] ?? 1));
+$offset = ($page - 1) * $perPage;
+
+$totalUsers = $pdo->query("SELECT COUNT(*) FROM users")->fetchColumn();
+$totalPages = max(1, ceil($totalUsers / $perPage));
+
+if ($page > $totalPages && $totalPages > 0) {
+    header("Location: users.php?page=$totalPages");
+    exit;
+}
+
+$stmt = $pdo->prepare("SELECT * FROM users ORDER BY role ASC, full_name ASC LIMIT ? OFFSET ?");
+$stmt->execute([$perPage, $offset]);
 $users = $stmt->fetchAll();
 
 $editUser = null;
@@ -10,6 +24,38 @@ if (isset($_GET['edit'])) {
     $stmt = $pdo->prepare("SELECT * FROM users WHERE id = ?");
     $stmt->execute([$_GET['edit']]);
     $editUser = $stmt->fetch();
+}
+
+// ==================== ACTIVITY LOGS ====================
+$activityLogs = [];
+try {
+    $stmtLogs = $pdo->query("
+        SELECT al.action, al.description, al.ip_address, al.created_at, u.full_name 
+        FROM activity_logs al 
+        LEFT JOIN users u ON al.entity_id = u.id AND al.entity_type = 'user'
+        ORDER BY al.created_at DESC 
+        LIMIT 10
+    ");
+    $activityLogs = $stmtLogs->fetchAll();
+} catch (Exception $e) {
+}
+
+// ==================== PASSWORD HISTORY ====================
+$passwordHistory = [];
+if ($editUser) {
+    try {
+        $stmtHist = $pdo->prepare("
+            SELECT ph.*, u.full_name as changer_name 
+            FROM password_history ph 
+            LEFT JOIN users u ON ph.changed_by_user_id = u.id 
+            WHERE ph.user_id = ? 
+            ORDER BY ph.created_at DESC 
+            LIMIT 5
+        ");
+        $stmtHist->execute([$editUser['id']]);
+        $passwordHistory = $stmtHist->fetchAll();
+    } catch (Exception $e) {
+    }
 }
 
 $msg = $_GET['msg'] ?? '';
@@ -113,6 +159,99 @@ $msg = $_GET['msg'] ?? '';
         .password-option .option-content {
             flex: 1;
         }
+
+        .pagination-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            padding: 20px;
+            flex-wrap: wrap;
+        }
+
+        .page-btn {
+            min-width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            border: 2px solid #e5e7eb;
+            background: white;
+            color: #374151;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            text-decoration: none;
+        }
+
+        .page-btn:hover:not(.disabled):not(.active) {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .page-btn.active {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: white;
+        }
+
+        .page-btn.disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .page-info {
+            font-size: 0.85rem;
+            color: #6b7280;
+            margin: 0 10px;
+        }
+
+        .activity-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 12px 0;
+            border-bottom: 1px solid #f3f4f6;
+        }
+
+        .activity-item:last-child {
+            border-bottom: none;
+        }
+
+        .activity-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            flex-shrink: 0;
+        }
+
+        .activity-icon.success {
+            background: #dcfce7;
+            color: #16a34a;
+        }
+
+        .activity-icon.failed {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+
+        .activity-icon.info {
+            background: #dbeafe;
+            color: #2563eb;
+        }
+
+        .password-history-item {
+            background: #f9fafb;
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 10px;
+            border-left: 4px solid var(--primary);
+        }
     </style>
 </head>
 
@@ -145,23 +284,20 @@ $msg = $_GET['msg'] ?? '';
     <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
 
     <div class="main-content">
-        <!-- MOBILE HEADER -->
         <div class="mobile-header">
             <button class="btn-toggle-sidebar" onclick="toggleSidebar()">☰</button>
             <span class="brand-mobile">🏪 Mini PoS</span>
             <span style="width:30px;"></span>
         </div>
 
-        <!-- HEADER -->
         <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
             <div>
                 <h4 class="fw-bold m-0">👥 Manajemen User</h4>
                 <small class="text-muted">Kelola akun admin dan kasir</small>
             </div>
-            <span class="badge bg-light text-dark border px-3 py-2"><?= count($users) ?> user terdaftar</span>
+            <span class="badge bg-light text-dark border px-3 py-2"><?= $totalUsers ?> user terdaftar</span>
         </div>
 
-        <!-- ALERT MESSAGES -->
         <?php
         $alerts = [
             'added' => ['success', '✅ User berhasil ditambahkan!'],
@@ -178,7 +314,7 @@ $msg = $_GET['msg'] ?? '';
         <?php endif; ?>
 
         <div class="row g-4">
-            <!-- FORM TAMBAH / EDIT USER -->
+            <!-- KOLOM KIRI: Form + Aksi Cepat + Manajemen Password -->
             <div class="col-12 col-lg-4">
                 <div class="card border-0 shadow-sm">
                     <div class="card-header">
@@ -201,7 +337,6 @@ $msg = $_GET['msg'] ?? '';
                                     placeholder="Contoh: Budi Santoso" required>
                             </div>
 
-                            <!-- ✅ USERNAME SEKARANG BISA DIEDIT -->
                             <div class="mb-3">
                                 <label class="form-label fw-semibold small text-muted">Username</label>
                                 <input type="text" name="username" class="form-control form-control-lg"
@@ -211,23 +346,30 @@ $msg = $_GET['msg'] ?? '';
                                 <small class="text-muted">Hanya huruf, angka, dan underscore (_)</small>
                             </div>
 
-                            <?php if (!$editUser): ?>
-                                <div class="mb-3">
-                                    <label class="form-label fw-semibold small text-muted">Password</label>
-                                    <div class="password-wrapper">
-                                        <input type="password" name="password" id="createPassword"
-                                            class="form-control form-control-lg"
-                                            placeholder="Minimal 6 karakter" required minlength="6">
-                                        <button type="button" class="password-toggle" onclick="togglePassword('createPassword', this)">
-                                            <i class="bi bi-eye"></i>
-                                        </button>
-                                    </div>
-                                    <div class="password-strength">
-                                        <div class="password-strength-bar" id="createPasswordStrength"></div>
-                                    </div>
-                                    <small class="text-muted" id="createPasswordHint">Gunakan kombinasi huruf & angka</small>
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold small text-muted">
+                                    <?= $editUser ? 'Password Baru (kosongkan jika tidak diubah)' : 'Password' ?>
+                                </label>
+                                <div class="password-wrapper">
+                                    <input type="password" name="password" id="editPassword"
+                                        class="form-control form-control-lg"
+                                        placeholder="<?= $editUser ? 'Kosongkan = tidak diubah' : 'Minimal 6 karakter' ?>"
+                                        <?= $editUser ? '' : 'required' ?>
+                                        minlength="<?= $editUser ? '0' : '6' ?>"
+                                        autocomplete="new-password">
+                                    <button type="button" class="password-toggle" onclick="togglePassword('editPassword', this)">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
                                 </div>
-                            <?php endif; ?>
+                                <?php if ($editUser): ?>
+                                    <small class="text-warning">⚠️ Kosongkan field ini jika tidak ingin mengubah password</small>
+                                <?php else: ?>
+                                    <div class="password-strength">
+                                        <div class="password-strength-bar" id="editPasswordStrength"></div>
+                                    </div>
+                                    <small class="text-muted" id="editPasswordHint">Gunakan kombinasi huruf & angka</small>
+                                <?php endif; ?>
+                            </div>
 
                             <div class="mb-3">
                                 <label class="form-label fw-semibold small text-muted">Role</label>
@@ -268,7 +410,6 @@ $msg = $_GET['msg'] ?? '';
                                 onclick="openChangePassword(<?= $editUser['id'] ?>, '<?= htmlspecialchars($editUser['username']) ?>')">
                                 🔑 Ganti Password
                             </button>
-                            <!-- ✅ Hanya tampilkan toggle jika bukan diri sendiri -->
                             <?php if ($editUser['id'] != $_SESSION['user_id']): ?>
                                 <button class="btn btn-outline-info w-100 py-2 fw-semibold"
                                     onclick="toggleStatus(<?= $editUser['id'] ?>, <?= $editUser['is_active'] ? 0 : 1 ?>)">
@@ -281,15 +422,104 @@ $msg = $_GET['msg'] ?? '';
                             <?php endif; ?>
                         </div>
                     </div>
+
+                    <!-- PASSWORD MANAGEMENT CARD -->
+                    <div class="card border-0 shadow-sm mt-3">
+                        <div class="card-header">🔐 Manajemen Password</div>
+                        <div class="card-body">
+                            <div class="d-flex align-items-center gap-3 mb-3 p-3 bg-light rounded-3">
+                                <div style="font-size:2rem;">🔑</div>
+                                <div class="flex-grow-1">
+                                    <div class="fw-bold small text-muted">STATUS PASSWORD</div>
+                                    <div class="fw-semibold" id="passwordStatus">Memuat...</div>
+                                </div>
+                            </div>
+
+                            <?php if (!empty($passwordHistory)): ?>
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold small text-muted mb-2">📜 Riwayat Perubahan Password</label>
+                                    <div style="max-height: 250px; overflow-y: auto;">
+                                        <?php foreach ($passwordHistory as $ph): ?>
+                                            <div class="password-history-item">
+                                                <div class="d-flex justify-content-between align-items-start mb-1">
+                                                    <span class="badge <?= $ph['change_method'] === 'default_reset' ? 'bg-warning text-dark' : ($ph['change_method'] === 'initial' ? 'bg-info text-dark' : 'bg-success') ?>">
+                                                        <?php
+                                                        echo match ($ph['change_method']) {
+                                                            'default_reset' => '⚡ Reset Default',
+                                                            'initial' => '🆕 Password Awal',
+                                                            'custom' => '✏️ Custom',
+                                                            default => '-'
+                                                        };
+                                                        ?>
+                                                    </span>
+                                                    <small class="text-muted"><?= date('d/m H:i', strtotime($ph['created_at'])) ?></small>
+                                                </div>
+                                                <div class="small"><strong>Diubah oleh:</strong> <?= htmlspecialchars($ph['changed_by_name'] ?? 'System') ?></div>
+                                                <?php if ($ph['notes']): ?>
+                                                    <div class="small text-muted mt-1">💬 <?= htmlspecialchars($ph['notes']) ?></div>
+                                                <?php endif; ?>
+                                            </div>
+                                        <?php endforeach; ?>
+                                    </div>
+                                </div>
+                            <?php else: ?>
+                                <div class="alert alert-light border small mb-3">ℹ️ Belum ada riwayat perubahan password untuk user ini.</div>
+                            <?php endif; ?>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold small text-muted">Password Default Sistem</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control font-monospace" value="password123" readonly
+                                        id="defaultPasswordInput" style="background:#f9fafb;">
+                                    <button class="btn btn-outline-primary" type="button" onclick="copyDefaultPassword()">
+                                        <i class="bi bi-clipboard"></i> Copy
+                                    </button>
+                                </div>
+                                <small class="text-muted">Gunakan ini untuk reset atau berikan ke user baru</small>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold small text-muted">Generate Password Acak</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control font-monospace" id="generatedPassword"
+                                        readonly style="background:#f9fafb;" placeholder="Klik generate">
+                                    <button class="btn btn-outline-success" type="button" onclick="generateRandomPassword()">🎲 Generate</button>
+                                    <button class="btn btn-outline-primary" type="button" onclick="copyGeneratedPassword()">
+                                        <i class="bi bi-clipboard"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="d-grid gap-2">
+                                <button class="btn btn-warning fw-semibold"
+                                    onclick="openChangePassword(<?= $editUser['id'] ?>, '<?= htmlspecialchars($editUser['username']) ?>')">
+                                    🔑 Ganti Password Manual
+                                </button>
+                                <button class="btn btn-outline-danger fw-semibold"
+                                    onclick="quickResetPassword(<?= $editUser['id'] ?>, '<?= htmlspecialchars($editUser['username']) ?>')">
+                                    ⚡ Quick Reset ke Default
+                                </button>
+                            </div>
+
+                            <div class="alert alert-warning border-0 small mt-3 mb-0">
+                                🔒 <strong>Catatan Keamanan:</strong> Password asli tidak dapat ditampilkan karena disimpan sebagai hash terenkripsi. Riwayat di atas mencatat <em>kapan</em> dan <em>bagaimana</em> password diubah.
+                            </div>
+                        </div>
+                    </div>
                 <?php endif; ?>
             </div>
 
-            <!-- TABEL DAFTAR USER -->
+            <!-- KOLOM KANAN: Tabel + Info + Activity Log -->
             <div class="col-12 col-lg-8">
                 <div class="card border-0 shadow-sm">
-                    <div class="card-header d-flex justify-content-between align-items-center">
+                    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
                         <span>📋 Daftar User</span>
-                        <span class="badge bg-light text-dark border px-3 py-2"><?= count($users) ?> user</span>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge bg-light text-dark border px-3 py-2"><?= $totalUsers ?> user</span>
+                            <?php if ($totalPages > 1): ?>
+                                <span class="badge bg-primary px-3 py-2">Halaman <?= $page ?>/<?= $totalPages ?></span>
+                            <?php endif; ?>
+                        </div>
                     </div>
                     <div class="card-body p-0">
                         <div class="table-responsive">
@@ -338,7 +568,7 @@ $msg = $_GET['msg'] ?? '';
                                             </td>
                                             <td class="text-center pe-3 pe-md-4">
                                                 <div class="btn-group btn-group-sm">
-                                                    <a href="users.php?edit=<?= $u['id'] ?>"
+                                                    <a href="users.php?edit=<?= $u['id'] ?>&page=<?= $page ?>"
                                                         class="btn btn-outline-primary px-2 px-md-3" title="Edit">✏️</a>
                                                     <?php if ($u['id'] != $_SESSION['user_id']): ?>
                                                         <button class="btn btn-outline-danger px-2 px-md-3"
@@ -362,9 +592,48 @@ $msg = $_GET['msg'] ?? '';
                                 </tbody>
                             </table>
                         </div>
+
+                        <?php if ($totalPages > 1): ?>
+                            <div class="pagination-container border-top">
+                                <?php if ($page > 1): ?>
+                                    <a href="?page=<?= $page - 1 ?><?= $editUser ? '&edit=' . $editUser['id'] : '' ?>" class="page-btn" title="Sebelumnya">
+                                        <i class="bi bi-chevron-left"></i>
+                                    </a>
+                                <?php else: ?>
+                                    <span class="page-btn disabled"><i class="bi bi-chevron-left"></i></span>
+                                <?php endif; ?>
+
+                                <?php
+                                $startPage = max(1, $page - 2);
+                                $endPage = min($totalPages, $page + 2);
+                                if ($startPage > 1) echo '<a href="?page=1" class="page-btn">1</a>';
+                                if ($startPage > 2) echo '<span class="page-info">...</span>';
+                                for ($i = $startPage; $i <= $endPage; $i++):
+                                ?>
+                                    <a href="?page=<?= $i ?><?= $editUser ? '&edit=' . $editUser['id'] : '' ?>"
+                                        class="page-btn <?= $i === $page ? 'active' : '' ?>"><?= $i ?></a>
+                                <?php endfor;
+                                if ($endPage < $totalPages - 1) echo '<span class="page-info">...</span>';
+                                if ($endPage < $totalPages) echo '<a href="?page=' . $totalPages . '" class="page-btn">' . $totalPages . '</a>';
+                                ?>
+
+                                <?php if ($page < $totalPages): ?>
+                                    <a href="?page=<?= $page + 1 ?><?= $editUser ? '&edit=' . $editUser['id'] : '' ?>" class="page-btn" title="Berikutnya">
+                                        <i class="bi bi-chevron-right"></i>
+                                    </a>
+                                <?php else: ?>
+                                    <span class="page-btn disabled"><i class="bi bi-chevron-right"></i></span>
+                                <?php endif; ?>
+
+                                <div class="page-info w-100 text-center mt-2">
+                                    Menampilkan <?= (($page - 1) * $perPage) + 1 ?> - <?= min($page * $perPage, $totalUsers) ?> dari <?= $totalUsers ?> user
+                                </div>
+                            </div>
+                        <?php endif; ?>
                     </div>
                 </div>
 
+                <!-- INFO CARD -->
                 <div class="card border-0 shadow-sm mt-3 bg-light">
                     <div class="card-body">
                         <h6 class="fw-bold mb-2">ℹ️ Informasi</h6>
@@ -374,7 +643,72 @@ $msg = $_GET['msg'] ?? '';
                             <li><strong>Nonaktif:</strong> User tidak bisa login</li>
                             <li>Password default saat reset: <code>password123</code></li>
                             <li>Admin bisa mengedit akun sendiri termasuk username dan password</li>
+                            <li>Klik icon 👁️ untuk lihat/sembunyikan password saat mengetik</li>
+                            <li>Daftar user ditampilkan 10 per halaman dengan navigasi pagination</li>
+                            <li>Log aktivitas mencatat login berhasil/gagal dan aksi penting lainnya</li>
                         </ul>
+                    </div>
+                </div>
+
+                <!-- ✅ LOG AKTIVITAS TERBARU - SEKARANG DI KOLOM KANAN, DI BAWAH INFO CARD -->
+                <div class="card border-0 shadow-sm mt-3">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span>📋 Log Aktivitas Terbaru</span>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge bg-light text-dark border"><?= count($activityLogs) ?></span>
+                            <a href="history.php?tab=users" class="btn btn-sm btn-outline-primary px-3" title="Lihat semua">
+                                Lihat Semua →
+                            </a>
+                        </div>
+                    </div>
+                    <div class="card-body p-3">
+                        <?php if (empty($activityLogs)): ?>
+                            <div class="text-center py-4 text-muted">
+                                <div style="font-size:2.5rem;">📭</div>
+                                <small class="d-block mt-2">Belum ada aktivitas tercatat</small>
+                                <small class="text-muted">Aktivitas login & aksi user akan muncul di sini</small>
+                            </div>
+                        <?php else: ?>
+                            <?php foreach ($activityLogs as $log): ?>
+                                <?php
+                                $iconClass = 'info';
+                                $icon = 'ℹ️';
+                                if (strpos($log['action'], 'success') !== false || strpos($log['action'], 'login_success') !== false) {
+                                    $iconClass = 'success';
+                                    $icon = '✅';
+                                } elseif (strpos($log['action'], 'failed') !== false) {
+                                    $iconClass = 'failed';
+                                    $icon = '❌';
+                                } elseif (strpos($log['action'], 'logout') !== false) {
+                                    $iconClass = 'info';
+                                    $icon = '🚪';
+                                }
+                                ?>
+                                <div class="activity-item">
+                                    <div class="activity-icon <?= $iconClass ?>"><?= $icon ?></div>
+                                    <div class="flex-grow-1" style="min-width:0;">
+                                        <div class="small fw-semibold text-truncate">
+                                            <?= htmlspecialchars($log['description'] ?: ucfirst(str_replace('_', ' ', $log['action']))) ?>
+                                        </div>
+                                        <div class="d-flex gap-2 mt-1 flex-wrap">
+                                            <?php if ($log['full_name']): ?>
+                                                <span class="badge bg-light text-dark border" style="font-size:0.65rem;">
+                                                    👤 <?= htmlspecialchars($log['full_name']) ?>
+                                                </span>
+                                            <?php endif; ?>
+                                            <?php if ($log['ip_address']): ?>
+                                                <span class="badge bg-light text-dark border" style="font-size:0.65rem;">
+                                                    🌐 <?= htmlspecialchars($log['ip_address']) ?>
+                                                </span>
+                                            <?php endif; ?>
+                                            <span class="badge bg-light text-dark border" style="font-size:0.65rem;">
+                                                🕐 <?= date('d/m H:i', strtotime($log['created_at'])) ?>
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>
@@ -444,9 +778,7 @@ $msg = $_GET['msg'] ?? '';
                                         <i class="bi bi-eye"></i>
                                     </button>
                                 </div>
-                                <small class="text-danger" id="passwordMatchError" style="display:none;">
-                                    ❌ Password tidak sama
-                                </small>
+                                <small class="text-danger" id="passwordMatchError" style="display:none;">❌ Password tidak sama</small>
                             </div>
                         </div>
 
@@ -501,6 +833,39 @@ $msg = $_GET['msg'] ?? '';
         </div>
     </div>
 
+    <!-- MODAL CONFIRM CUSTOM -->
+    <div id="confirmOverlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(6px);z-index:500;display:none;align-items:center;justify-content:center;padding:20px;opacity:0;transition:opacity 0.25s ease;">
+        <div style="background:white;width:100%;max-width:380px;border-radius:24px;padding:36px 28px 28px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.3);animation:confirmPop 0.35s cubic-bezier(0.34,1.56,0.64,1);">
+            <div id="confirmIcon" style="width:80px;height:80px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:2.5rem;background:#fef2f2;border:3px solid #fecaca;">⚠️</div>
+            <div id="confirmTitle" style="font-weight:900;font-size:1.3rem;margin-bottom:8px;color:#1f2937;">Konfirmasi</div>
+            <div id="confirmMessage" style="font-size:0.9rem;color:#6b7280;margin-bottom:6px;line-height:1.5;">Apakah Anda yakin?</div>
+            <div id="confirmDetail" style="background:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:12px;margin:16px 0;font-size:0.85rem;color:#991b1b;font-weight:600;display:none;"></div>
+            <div style="display:flex;gap:10px;margin-top:20px;">
+                <button style="flex:1;padding:14px;border-radius:14px;font-weight:800;cursor:pointer;background:#f3f4f6;color:#374151;border:2px solid #e5e7eb;" onclick="hideConfirm()">Kembali</button>
+                <button id="confirmYesBtn" style="flex:1;padding:14px;border-radius:14px;font-weight:800;cursor:pointer;background:#ef4444;color:white;border:none;">Ya</button>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        @keyframes confirmPop {
+            0% {
+                transform: scale(0.5);
+                opacity: 0;
+            }
+
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        #confirmOverlay.show {
+            display: flex !important;
+            opacity: 1;
+        }
+    </style>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         function toggleSidebar() {
@@ -528,8 +893,10 @@ $msg = $_GET['msg'] ?? '';
             if (!bar) return;
             bar.className = 'password-strength-bar';
             if (password.length === 0) {
-                hint.textContent = 'Gunakan kombinasi huruf & angka';
-                hint.className = 'text-muted small';
+                if (hint) {
+                    hint.textContent = 'Gunakan kombinasi huruf & angka';
+                    hint.className = 'text-muted small';
+                }
                 return;
             }
             let strength = 0;
@@ -540,21 +907,27 @@ $msg = $_GET['msg'] ?? '';
             if (/[^A-Za-z0-9]/.test(password)) strength++;
             if (strength <= 2) {
                 bar.classList.add('strength-weak');
-                hint.textContent = '🔴 Lemah';
-                hint.className = 'text-danger small';
+                if (hint) {
+                    hint.textContent = '🔴 Lemah';
+                    hint.className = 'text-danger small';
+                }
             } else if (strength <= 3) {
                 bar.classList.add('strength-medium');
-                hint.textContent = '🟡 Sedang';
-                hint.className = 'text-warning small';
+                if (hint) {
+                    hint.textContent = '🟡 Sedang';
+                    hint.className = 'text-warning small';
+                }
             } else {
                 bar.classList.add('strength-strong');
-                hint.textContent = '🟢 Kuat';
-                hint.className = 'text-success small';
+                if (hint) {
+                    hint.textContent = '🟢 Kuat';
+                    hint.className = 'text-success small';
+                }
             }
         }
 
-        document.getElementById('createPassword')?.addEventListener('input', function() {
-            checkPasswordStrength(this.value, 'createPasswordStrength', 'createPasswordHint');
+        document.getElementById('editPassword')?.addEventListener('input', function() {
+            checkPasswordStrength(this.value, 'editPasswordStrength', 'editPasswordHint');
         });
         document.getElementById('newPassword')?.addEventListener('input', function() {
             checkPasswordStrength(this.value, 'newPasswordStrength', 'newPasswordHint');
@@ -570,8 +943,7 @@ $msg = $_GET['msg'] ?? '';
                 errorEl.style.display = 'none';
                 return;
             }
-            if (newPass !== confirmPass) errorEl.style.display = 'block';
-            else errorEl.style.display = 'none';
+            errorEl.style.display = (newPass !== confirmPass) ? 'block' : 'none';
             updateChangeButtonState();
         }
 
@@ -583,18 +955,12 @@ $msg = $_GET['msg'] ?? '';
             document.getElementById('changePasswordUsername').textContent = username;
             document.getElementById('confirmChange').checked = false;
             document.getElementById('btnChangePassword').disabled = true;
-
-            // ✅ Tampilkan badge jika edit diri sendiri
             document.getElementById('selfEditBadge').style.display = (userId === currentAdminId) ? 'inline-block' : 'none';
-
             selectPasswordOption('default', document.querySelector('.password-option'));
             document.getElementById('newPassword').value = '';
             document.getElementById('confirmPassword').value = '';
             document.getElementById('passwordMatchError').style.display = 'none';
             document.getElementById('newPasswordStrength').className = 'password-strength-bar';
-            document.getElementById('newPasswordHint').textContent = 'Gunakan kombinasi huruf & angka';
-            document.getElementById('newPasswordHint').className = 'text-muted small';
-
             const modal = new bootstrap.Modal(document.getElementById('changePasswordModal'));
             modal.show();
         }
@@ -606,10 +972,8 @@ $msg = $_GET['msg'] ?? '';
             document.querySelectorAll('.password-option').forEach(el => el.classList.remove('selected'));
             if (clickedElement) clickedElement.classList.add('selected');
             else if (radio) radio.closest('.password-option').classList.add('selected');
-
             const customFields = document.getElementById('customPasswordFields');
             customFields.style.display = option === 'custom' ? 'block' : 'none';
-
             const newPassInput = document.getElementById('newPassword');
             const confirmPassInput = document.getElementById('confirmPassword');
             if (option === 'custom') {
@@ -692,6 +1056,167 @@ $msg = $_GET['msg'] ?? '';
                     else alert('❌ ' + data.error);
                 })
                 .catch(() => alert('Terjadi kesalahan!'));
+        }
+
+        function showConfirm({
+            icon,
+            title,
+            message,
+            detail,
+            yesText,
+            yesAction
+        }) {
+            document.getElementById('confirmIcon').textContent = icon || '⚠️';
+            document.getElementById('confirmTitle').textContent = title || 'Konfirmasi';
+            document.getElementById('confirmMessage').textContent = message || 'Apakah Anda yakin?';
+            const detailEl = document.getElementById('confirmDetail');
+            if (detail) {
+                detailEl.innerHTML = detail;
+                detailEl.style.display = 'block';
+            } else {
+                detailEl.style.display = 'none';
+            }
+            const yesBtn = document.getElementById('confirmYesBtn');
+            yesBtn.textContent = yesText || 'Ya';
+            yesBtn.onclick = function() {
+                hideConfirm();
+                if (yesAction) yesAction();
+            };
+            const overlay = document.getElementById('confirmOverlay');
+            overlay.style.display = 'flex';
+            requestAnimationFrame(() => overlay.classList.add('show'));
+        }
+
+        function hideConfirm() {
+            const overlay = document.getElementById('confirmOverlay');
+            overlay.classList.remove('show');
+            setTimeout(() => {
+                overlay.style.display = 'none';
+            }, 250);
+        }
+
+        document.getElementById('confirmOverlay').addEventListener('click', function(e) {
+            if (e.target === this) hideConfirm();
+        });
+
+        <?php if ($editUser): ?>
+                (function() {
+                    const statusEl = document.getElementById('passwordStatus');
+                    fetch('process_user.php', {
+                            method: 'POST',
+                            headers: {
+                                'X-Requested-With': 'XMLHttpRequest'
+                            },
+                            body: new URLSearchParams({
+                                action: 'check_password_status',
+                                id: <?= $editUser['id'] ?>
+                            })
+                        })
+                        .then(r => r.json())
+                        .then(data => {
+                            if (data.is_default) {
+                                statusEl.innerHTML = '<span class="text-warning">⚠️ Masih menggunakan password default</span>';
+                            } else {
+                                statusEl.innerHTML = '<span class="text-success">✅ Password sudah diubah dari default</span>';
+                            }
+                        })
+                        .catch(() => {
+                            statusEl.innerHTML = '<span class="text-muted">ℹ️ Status tidak tersedia</span>';
+                        });
+                })();
+        <?php endif; ?>
+
+        function copyDefaultPassword() {
+            const input = document.getElementById('defaultPasswordInput');
+            navigator.clipboard.writeText(input.value).then(() => {
+                    showToastMessage('✅ Password default berhasil dicopy!');
+                })
+                .catch(() => {
+                    input.select();
+                    document.execCommand('copy');
+                    showToastMessage('✅ Password default berhasil dicopy!');
+                });
+        }
+
+        function generateRandomPassword() {
+            const chars = 'abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%';
+            let password = '';
+            for (let i = 0; i < 12; i++) {
+                password += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            document.getElementById('generatedPassword').value = password;
+        }
+
+        function copyGeneratedPassword() {
+            const input = document.getElementById('generatedPassword');
+            if (!input.value) {
+                showToastMessage('⚠️ Generate password terlebih dahulu!');
+                return;
+            }
+            navigator.clipboard.writeText(input.value).then(() => {
+                    showToastMessage('✅ Password acak berhasil dicopy!');
+                })
+                .catch(() => {
+                    input.select();
+                    document.execCommand('copy');
+                    showToastMessage('✅ Password acak berhasil dicopy!');
+                });
+        }
+
+        function quickResetPassword(userId, username) {
+            showConfirm({
+                icon: '⚡',
+                title: 'Quick Reset Password?',
+                message: `Password user "${username}" akan direset ke password default sistem.`,
+                detail: `
+            <div style="text-align:center;">
+                <div style="font-size:0.8rem; color:#6b7280; margin-bottom:6px;">Password akan diubah menjadi:</div>
+                <div style="font-size:1.3rem; font-weight:900; font-family:monospace; background:#f3f4f6; padding:10px; border-radius:8px;">password123</div>
+                <div style="font-size:0.75rem; color:#6b7280; margin-top:6px;">User harus login ulang dengan password baru</div>
+            </div>
+        `,
+                yesText: '⚡ Ya, Reset Sekarang',
+                yesAction: function() {
+                    const formData = new FormData();
+                    formData.append('action', 'change_password');
+                    formData.append('id', userId);
+                    formData.append('password_option', 'default');
+                    fetch('process_user.php', {
+                            method: 'POST',
+                            body: formData,
+                            headers: {
+                                'X-Requested-With': 'XMLHttpRequest'
+                            }
+                        })
+                        .then(r => r.json())
+                        .then(data => {
+                            if (data.success) {
+                                showToastMessage('✅ Password berhasil direset!');
+                                setTimeout(() => location.reload(), 1500);
+                            } else {
+                                alert('❌ ' + data.error);
+                            }
+                        })
+                        .catch(() => alert('Terjadi kesalahan!'));
+                }
+            });
+        }
+
+        function showToastMessage(message) {
+            let toast = document.getElementById('globalToast');
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.id = 'globalToast';
+                toast.style.cssText = 'position:fixed;top:20px;right:20px;background:#1e1b4b;color:white;padding:14px 24px;border-radius:12px;font-weight:600;z-index:9999;box-shadow:0 8px 30px rgba(0,0,0,0.2);transition:all 0.3s ease;font-size:0.9rem;';
+                document.body.appendChild(toast);
+            }
+            toast.textContent = message;
+            toast.style.opacity = '1';
+            toast.style.transform = 'translateY(0)';
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(-20px)';
+            }, 2500);
         }
     </script>
 </body>
