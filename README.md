@@ -8,7 +8,7 @@
 
 Sistem Point of Sale (PoS) modern berbasis web dengan fitur lengkap untuk bisnis F&B, retail, dan UMKM. Dibangun menggunakan **PHP Native + Bootstrap 5 + MySQL** dengan arsitektur yang scalable dan mudah dikembangkan.
 
-![Mini PoS Banner](docs/banner.png)
+![Mini PoS Banner](docs/menulogin.png)
 
 ---
 
