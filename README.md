@@ -88,6 +88,7 @@ Sistem Point of Sale (PoS) modern berbasis web dengan fitur lengkap untuk bisnis
 - PHP 8.0 atau lebih baru
 - MySQL 5.7 atau lebih baru
 - Web browser modern
+- nama database db_mini_pos
 
 ### Langkah-langkah
 
