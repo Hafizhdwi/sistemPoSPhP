@@ -161,57 +161,62 @@ Sistem Point of Sale (PoS) modern berbasis web dengan fitur lengkap untuk bisnis
 
 Project ini menggunakan arsitektur modular untuk maintainability yang lebih baik:
 
-### 📂 Struktur Folder
 sistemPoSPhP/
 │
-├── config/
-│ ├── database.php # Koneksi DB + helpers + auto-fix
-│ ├── database.example.php # Template konfigurasi
+├── 📁 config/ # Konfigurasi & helper functions
+│ ├── database.php # Koneksi DB + helpers + auto-fix hash
+│ ├── database.example.php # Template konfigurasi database
 │ └── auth.php # Authentication helpers
 │
-├── assets/
+├── 📁 assets/ # Static assets (CSS, JS, images)
 │ ├── style.css # Global CSS (sidebar, dropdown, profile)
-│ ├── css/
+│ ├── 📁 css/
 │ │ └── kasir.css # 🆕 CSS specific halaman kasir
-│ └── js/
+│ └── 📁 js/
 │ └── kasir.js # 🆕 JS specific halaman kasir
 │
-├── components/ # 🆕 Komponen HTML reusable
-│ ├── sidebar.php # Sidebar + user dropdown
-│ ├── calendar-panel.php # Panel kalender interaktif
+├── 📁 components/ # 🆕 Komponen HTML reusable
+│ ├── sidebar.php # Sidebar + user info dropdown
+│ ├── calendar-panel.php # Panel kalender interaktif + statistik
 │ ├── offcanvas-cart.php # Offcanvas keranjang + floating button
-│ └── toast-success.php # Notifikasi sukses premium
+│ └── toast-success.php # Notifikasi sukses premium (confetti)
 │
-├── uploads/ # Logo & file upload
-│ └── .gitkeep
+├── 📁 uploads/ # File upload (logo toko, dll)
+│ └── .gitkeep # Placeholder untuk git
 │
-├── docs/ # Dokumentasi & screenshot
-│ └── menulogin.png
+├── 📁 docs/ # Dokumentasi & screenshot
+│ └── menulogin.png # Banner halaman login
 │
-├── index.php # Halaman kasir (AJAX handler + main)
-├── login.php # Halaman login
-├── logout.php # Proses logout + logging
-├── dashboard.php # Dashboard admin
-├── products.php # Manajemen produk & inventory
-├── kitchen.php # Kitchen display system
-├── users.php # Manajemen user + log aktivitas
-├── history.php # Pusat riwayat (transaksi/stok/log)
-├── settings.php # Pengaturan toko
-├── profile.php # Edit profil & ganti password
-├── receipt.php # Cetak struk
-├── kiosk.php # Self-service kiosk
+│ ─── 📄 HALAMAN UTAMA ───────────────────────────────────────────
+│
+├── index.php # 🛒 Halaman kasir (AJAX handler + main)
+├── login.php # 🔐 Halaman login
+├── logout.php # 🚪 Proses logout + activity logging
+├── dashboard.php # 📊 Dashboard admin + analytics
+├── products.php # 📦 Manajemen produk & inventory
+├── kitchen.php # 🍳 Kitchen display system (KDS)
+├── users.php # 👥 Manajemen user + log aktivitas
+├── history.php # 📜 Pusat riwayat (transaksi/stok/log)
+├── settings.php # ⚙️ Pengaturan toko (info, pajak, struk)
+├── profile.php # 👤 Edit profil & ganti password
+├── receipt.php # 🧾 Cetak struk thermal
+└── kiosk.php # 🖥️ Self-service kiosk (tanpa login)
+│
+│ ─── 📄 HANDLER / PROCESSOR ─────────────────────────────────────
 │
 ├── process_user.php # Handler CRUD user & password
 ├── process_product.php # Handler CRUD produk & stok
-├── process_sale.php # Handler transaksi & pajak
+├── process_sale.php # Handler transaksi & perhitungan pajak
 ├── process_settings.php # Handler pengaturan toko
-├── process_profile.php # Handler edit profil
-├── process_order_status.php # Handler update status pesanan
+├── process_profile.php # Handler edit profil user
+└── process_order_status.php # Handler update status pesanan kiosk
 │
-├── setup.sql # Database schema + seed data
-├── .gitignore # Git ignore rules
-├── README.md # Dokumentasi project
-└── LICENSE # MIT License
+│ ─── 📄 FILE PENDUKUNG ──────────────────────────────────────────
+│
+├── setup.sql # 🗄️ Database schema + seed data
+├── .gitignore # 🚫 Git ignore rules
+├── README.md # 📖 Dokumentasi project (file ini)
+└── LICENSE # ⚖️ MIT License
 
 ### 🎯 Keuntungan Arsitektur Modular
 
