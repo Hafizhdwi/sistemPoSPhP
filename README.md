@@ -6,7 +6,7 @@
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Laragon](https://img.shields.io/badge/Laragon-Compatible-009688)](https://laragon.org)
 
-Sistem Point of Sale (PoS) modern berbasis web dengan fitur lengkap untuk bisnis F&B, retail, dan UMKM. Dibangun menggunakan **PHP Native + Bootstrap 5 + MySQL** dengan arsitektur yang scalable dan mudah dikembangkan.
+Sistem Point of Sale (PoS) modern berbasis web dengan fitur lengkap untuk bisnis F&B, retail, dan UMKM. Dibangun menggunakan **PHP Native + Bootstrap 5 + MySQL** dengan arsitektur modular yang scalable, maintainable, dan mudah dikembangkan.
 
 ![Mini PoS Banner](docs/menulogin.png)
 
@@ -27,29 +27,41 @@ Sistem Point of Sale (PoS) modern berbasis web dengan fitur lengkap untuk bisnis
 
 ### 👤 Manajemen User
 - ✅ CRUD user dengan avatar gradient otomatis
-- ✅ Dropdown profile modern dengan animasi smooth
+- ✅ **User Info Modern** dengan dropdown di sidebar (avatar gradient, role badge, online indicator)
+- ✅ Dropdown profile dengan akses cepat: Edit Profil, Pengaturan, Ganti Password, Logout
 - ✅ Halaman Edit Profil (nama, username, password)
 - ✅ Ganti password dengan verifikasi password lama
 - ✅ Reset password (default/custom) via modal
-- ✅ Quick reset ke password default
+- ✅ Quick reset ke password default dengan confirmation modal
 - ✅ Generate password acak 12 karakter
 - ✅ Copy password ke clipboard
 - ✅ Aktifkan/nonaktifkan akun
 - ✅ Pagination daftar user (10 per halaman)
-- ✅ Badge role berwarna (Admin ungu, Kasir hijau)
-- ✅ Online indicator dengan animasi pulse
+- ✅ Badge role berwarna (Admin ungu 🛡️, Kasir hijau 🛒)
+- ✅ **Compact Log Activity** dengan pagination (5 per halaman, scrollable)
+- ✅ **Log Pagination di atas** untuk akses mudah tanpa scroll
 
-### 🛒 Modul Kasir
+### 🛒 Modul Kasir (Upgraded!)
 - ✅ Pencarian produk real-time dengan shortcut **Ctrl+K**
-- ✅ Keranjang belanja interaktif dengan kontrol quantity (+/-)
+- ✅ **Floating Cart Button** dengan badge jumlah item (gradient purple)
+- ✅ **Offcanvas Cart** slide dari kanan (bukan panel statis)
+- ✅ **Calendar Panel** modern menggantikan panel cart (gradient header, stats harian)
 - ✅ Perhitungan pajak otomatis dari pengaturan toko
-- ✅ Tampilan subtotal + pajak + total di keranjang
+- ✅ Tampilan subtotal + pajak + total di offcanvas
 - ✅ Multi-metode pembayaran (Tunai, QRIS, Transfer, E-Wallet)
 - ✅ Cetak struk thermal (58mm/80mm) otomatis
-- ✅ Notifikasi suara & toast untuk pesanan baru
+- ✅ **Premium Toast Notifikasi** dengan:
+  - 🎨 Animasi slide-in dengan bounce effect
+  - ✨ Icon check SVG dengan draw animation
+  - 🌊 Ripple effect di belakang icon
+  - 🎉 Mini confetti (30 partikel warna-warni)
+  - 🔊 Sound effect "ka-ching" kasir
+  - 📊 Progress bar countdown 5 detik
+  - ⏸️ Hover pause (countdown berhenti saat hover)
 - ✅ Auto-load cart dari pesanan kiosk
 - ✅ Panel pesanan kiosk aktif dengan status real-time
-- ✅ Auto-polling pesanan kiosk baru setiap 5 detik
+- ✅ **AJAX Polling** pesanan kiosk baru setiap 5 detik
+- ✅ Notifikasi suara & toast untuk pesanan baru masuk
 
 ### 🖥️ Self-Service Kiosk
 - ✅ Halaman pelanggan tanpa login (seperti McDonald's/KFC)
@@ -69,7 +81,7 @@ Sistem Point of Sale (PoS) modern berbasis web dengan fitur lengkap untuk bisnis
 - ✅ Notifikasi suara saat pesanan baru masuk
 - ✅ Live indicator dengan animasi pulse
 - ✅ Color-coded card untuk status (Kuning/Biru/Hijau)
-- ✅ User info mini dengan avatar & dropdown
+- ✅ **User Info Mini** di header dengan dropdown
 - ✅ Navigation links ke Kasir, Dashboard, Riwayat
 - ✅ Responsive untuk tablet & monitor dapur
 
@@ -120,7 +132,8 @@ Sistem Point of Sale (PoS) modern berbasis web dengan fitur lengkap untuk bisnis
 - ✅ Pencatatan perubahan profil
 - ✅ Pencatatan transaksi
 - ✅ Pencatatan perubahan pengaturan toko
-- ✅ Pagination log (10 per halaman, terbaru ke terlama)
+- ✅ **Compact Pagination** log (5 per halaman, terbaru ke terlama)
+- ✅ **Scrollable container** dengan custom scrollbar
 - ✅ Navigasi pagination lengkap (First/Prev/Next/Last)
 - ✅ Info counter "Menampilkan X-Y dari Z log"
 
@@ -128,46 +141,54 @@ Sistem Point of Sale (PoS) modern berbasis web dengan fitur lengkap untuk bisnis
 
 ## 🎨 UI/UX Features
 
-- ✅ **Modern Sidebar** dengan avatar gradient & dropdown
+- ✅ **Modern Sidebar** dengan avatar gradient & dropdown di semua halaman
 - ✅ **Responsive Design** untuk desktop, tablet, dan mobile
 - ✅ **Dark Theme Kitchen** untuk layar dapur
 - ✅ **Smooth Animations** pada dropdown, toast, dan transisi
 - ✅ **Color-Coded Badges** untuk status, role, dan tipe
 - ✅ **Custom Confirmation Modals** pengganti alert browser
-- ✅ **Toast Notifications** dengan auto-dismiss
+- ✅ **Premium Toast Notifications** dengan confetti, sound, progress bar
 - ✅ **Sound Notifications** via Web Audio API
-- ✅ **Keyboard Shortcuts** (Ctrl+K search, ESC close)
+- ✅ **Keyboard Shortcuts** (Ctrl+K search, ESC close dropdown/modal)
 - ✅ **Print-Optimized** struk thermal
+- ✅ **Floating Action Button** dengan pulse animation
+- ✅ **Offcanvas Slide** untuk keranjang belanja
+- ✅ **Calendar Heatmap** dengan indicator transaksi
 
 ---
 
-## 🚀 Teknologi
+## 🏗️ Arsitektur Modular
 
-| Teknologi | Versi | Keterangan |
-|-----------|-------|-----------|
-| PHP | 8.0+ | Backend dengan PDO |
-| MySQL | 5.7+ | Database |
-| Bootstrap | 5.3 | UI Framework |
-| Chart.js | 4.4 | Visualisasi data |
-| Bootstrap Icons | 1.11 | Icon library |
-| Inter Font | - | Typography |
-| Laragon | - | Local development |
+Project ini menggunakan arsitektur modular untuk maintainability yang lebih baik:
 
----
-
-## 📂 Struktur Folder
-mini-pos/
+### 📂 Struktur Folder
+sistemPoSPhP/
+│
 ├── config/
 │ ├── database.php # Koneksi DB + helpers + auto-fix
 │ ├── database.example.php # Template konfigurasi
 │ └── auth.php # Authentication helpers
+│
 ├── assets/
-│ └── style.css # Custom CSS (sidebar, dropdown, profile)
+│ ├── style.css # Global CSS (sidebar, dropdown, profile)
+│ ├── css/
+│ │ └── kasir.css # 🆕 CSS specific halaman kasir
+│ └── js/
+│ └── kasir.js # 🆕 JS specific halaman kasir
+│
+├── components/ # 🆕 Komponen HTML reusable
+│ ├── sidebar.php # Sidebar + user dropdown
+│ ├── calendar-panel.php # Panel kalender interaktif
+│ ├── offcanvas-cart.php # Offcanvas keranjang + floating button
+│ └── toast-success.php # Notifikasi sukses premium
+│
 ├── uploads/ # Logo & file upload
 │ └── .gitkeep
+│
 ├── docs/ # Dokumentasi & screenshot
 │ └── menulogin.png
-├── index.php # Halaman kasir
+│
+├── index.php # Halaman kasir (AJAX handler + main)
 ├── login.php # Halaman login
 ├── logout.php # Proses logout + logging
 ├── dashboard.php # Dashboard admin
@@ -178,16 +199,45 @@ mini-pos/
 ├── settings.php # Pengaturan toko
 ├── profile.php # Edit profil & ganti password
 ├── receipt.php # Cetak struk
+├── kiosk.php # Self-service kiosk
+│
 ├── process_user.php # Handler CRUD user & password
 ├── process_product.php # Handler CRUD produk & stok
 ├── process_sale.php # Handler transaksi & pajak
 ├── process_settings.php # Handler pengaturan toko
 ├── process_profile.php # Handler edit profil
 ├── process_order_status.php # Handler update status pesanan
+│
 ├── setup.sql # Database schema + seed data
 ├── .gitignore # Git ignore rules
 ├── README.md # Dokumentasi project
 └── LICENSE # MIT License
+
+### 🎯 Keuntungan Arsitektur Modular
+
+| Aspek | Sebelum | Sesudah |
+|-------|---------|---------|
+| **File Size** | `index.php` ~1200 baris | `index.php` ~300 baris |
+| **Maintainability** | Sulit cari code | File terpisah per tanggung jawab |
+| **Browser Cache** | Tiap reload download semua | CSS/JS di-cache browser |
+| **Reusability** | Copy-paste manual | `include` component sekali |
+| **Debugging** | Susah isolate bug | File terpisah, mudah debug |
+| **AJAX Support** | Full HTML response | Partial HTML response (hemat bandwidth) |
+
+---
+
+## 🚀 Teknologi
+
+| Teknologi | Versi | Keterangan |
+|-----------|-------|-----------|
+| **PHP** | 8.0+ | Backend dengan PDO |
+| **MySQL** | 5.7+ | Database |
+| **Bootstrap** | 5.3 | UI Framework |
+| **Chart.js** | 4.4 | Visualisasi data |
+| **Bootstrap Icons** | 1.11 | Icon library |
+| **Inter Font** | - | Typography |
+| **Web Audio API** | Native | Sound notifications |
+| **Laragon** | - | Local development |
 
 ---
 
@@ -205,4 +255,4 @@ mini-pos/
 #### 1. Clone Repository
 ```bash
 git clone https://github.com/Hafizhdwi/sistemPoSPhP.git
-cd mini-pos
+cd sistemPoSPhP
