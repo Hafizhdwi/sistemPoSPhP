@@ -1,6 +1,6 @@
 -- ============================================
 -- MINI POS SYSTEM - FULL DATABASE SETUP (FINAL)
--- Termasuk: Login, Inventory, Kiosk, Activity Logs
+-- Termasuk: Login, Inventory, Kiosk, Logs, Settings, Tax
 -- ============================================
 
 DROP DATABASE IF EXISTS db_mini_pos;
@@ -8,7 +8,7 @@ CREATE DATABASE db_mini_pos CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE db_mini_pos;
 
 -- =====================
--- TABEL USERS (LOGIN)
+-- TABEL USERS
 -- =====================
 CREATE TABLE users (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -33,12 +33,14 @@ CREATE TABLE products (
 ) ENGINE=InnoDB;
 
 -- =====================
--- TABEL TRANSAKSI HEADER
+-- ✅ TABEL TRANSAKSI (dengan kolom pajak)
 -- =====================
 CREATE TABLE transactions (
     id INT AUTO_INCREMENT PRIMARY KEY,
     invoice_number VARCHAR(50) NOT NULL UNIQUE,
     total_amount DECIMAL(12,2) NOT NULL,
+    subtotal_amount DECIMAL(12,2) NOT NULL DEFAULT 0 COMMENT 'Total sebelum pajak',
+    tax_amount DECIMAL(12,2) NOT NULL DEFAULT 0 COMMENT 'Nilai pajak',
     pay_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
     change_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
     order_type ENUM('kasir', 'kiosk') NOT NULL DEFAULT 'kasir',
@@ -62,7 +64,7 @@ CREATE TABLE transaction_details (
 ) ENGINE=InnoDB;
 
 -- =====================
--- TABEL RIWAYAT MUTASI STOK
+-- TABEL MUTASI STOK
 -- =====================
 CREATE TABLE stock_history (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -76,14 +78,13 @@ CREATE TABLE stock_history (
 ) ENGINE=InnoDB;
 
 -- =====================
--- ✅ BARU: TABEL ACTIVITY LOGS
--- Mencatat semua aktivitas sistem (login, logout, dll)
+-- TABEL ACTIVITY LOGS
 -- =====================
 CREATE TABLE activity_logs (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    action VARCHAR(50) NOT NULL COMMENT 'login_success, login_failed, logout, etc',
-    entity_type VARCHAR(50) DEFAULT NULL COMMENT 'user, product, transaction',
-    entity_id INT DEFAULT NULL COMMENT 'ID of related entity',
+    action VARCHAR(50) NOT NULL,
+    entity_type VARCHAR(50) DEFAULT NULL,
+    entity_id INT DEFAULT NULL,
     description TEXT DEFAULT NULL,
     ip_address VARCHAR(45) DEFAULT NULL,
     user_agent VARCHAR(255) DEFAULT NULL,
@@ -94,11 +95,38 @@ CREATE TABLE activity_logs (
 ) ENGINE=InnoDB;
 
 -- =====================
+-- TABEL PASSWORD HISTORY
+-- =====================
+CREATE TABLE password_history (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    changed_by_user_id INT DEFAULT NULL,
+    changed_by_name VARCHAR(100) DEFAULT NULL,
+    change_method ENUM('default_reset', 'custom', 'initial') NOT NULL DEFAULT 'custom',
+    notes TEXT DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (changed_by_user_id) REFERENCES users(id) ON DELETE SET NULL,
+    INDEX idx_user (user_id),
+    INDEX idx_created (created_at)
+) ENGINE=InnoDB;
+
+-- =====================
+-- TABEL STORE SETTINGS
+-- =====================
+CREATE TABLE IF NOT EXISTS store_settings (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    setting_key VARCHAR(50) NOT NULL UNIQUE,
+    setting_value TEXT DEFAULT NULL,
+    setting_label VARCHAR(100) DEFAULT NULL,
+    setting_group VARCHAR(50) DEFAULT 'general',
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+-- =====================
 -- DATA USER DEFAULT
--- admin / admin123
--- kasir1 / kasir123
--- ⚠️ Hash di-generate dengan password_hash() PHP
--- Jika login gagal, jalankan generate_hash.php untuk buat hash baru
+-- Password akan di-auto-fix oleh config/database.php
 -- =====================
 INSERT INTO users (username, password_hash, full_name, role, is_active) VALUES 
 ('admin', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Administrator', 'admin', 1),
@@ -125,7 +153,27 @@ INSERT INTO stock_history (product_id, type, quantity, reference, notes) VALUES
 (5, 'adjustment', 30, 'INITIAL', 'Stok awal produk baru');
 
 -- =====================
--- DATA AWAL ACTIVITY LOG
+-- DATA ACTIVITY LOG AWAL
 -- =====================
 INSERT INTO activity_logs (action, entity_type, entity_id, description, ip_address) VALUES 
 ('system_init', NULL, NULL, 'Database initialized with default data', '127.0.0.1');
+
+-- =====================
+-- DATA STORE SETTINGS
+-- =====================
+INSERT INTO store_settings (setting_key, setting_value, setting_label, setting_group) VALUES 
+('store_name', 'Mini PoS Restaurant', 'Nama Toko', 'general'),
+('store_address', 'Jl. Teknologi No. 123, Jakarta', 'Alamat Toko', 'general'),
+('store_phone', '(021) 1234-5678', 'Nomor Telepon', 'general'),
+('store_email', 'info@minipos.com', 'Email Toko', 'general'),
+('store_logo', '', 'Logo Toko (path file)', 'general'),
+('tax_enabled', '1', 'Aktifkan Pajak', 'tax'),
+('tax_rate', '11', 'Tarif Pajak (%)', 'tax'),
+('tax_label', 'PPN 11%', 'Label Pajak', 'tax'),
+('receipt_header', 'Terima kasih atas kunjungan Anda!', 'Header Struk', 'receipt'),
+('receipt_footer', 'Barang yang sudah dibeli tidak dapat ditukar/dikembalikan', 'Footer Struk', 'receipt'),
+('receipt_show_logo', '1', 'Tampilkan Logo di Struk', 'receipt'),
+('receipt_show_address', '1', 'Tampilkan Alamat di Struk', 'receipt'),
+('currency_symbol', 'Rp', 'Simbol Mata Uang', 'general'),
+('timezone', 'Asia/Jakarta', 'Zona Waktu', 'general')
+ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value);

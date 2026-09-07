@@ -2,7 +2,7 @@
 require_once 'config/database.php';
 requireAdmin();
 
-// ==================== PAGINATION SETUP ====================
+// ==================== PAGINATION SETUP USERS ====================
 $perPage = 10;
 $page = max(1, intval($_GET['page'] ?? 1));
 $offset = ($page - 1) * $perPage;
@@ -27,10 +27,33 @@ if (isset($_GET['edit'])) {
     $editUser = $stmt->fetch();
 }
 
-// ==================== ACTIVITY LOGS (Exclude Transaksi & Stok) ====================
+// ==================== PAGINATION LOG AKTIVITAS ====================
+$logPerPage = 10; // ✅ 10 log per halaman
+$logPage = max(1, intval($_GET['log_page'] ?? 1));
+$logOffset = ($logPage - 1) * $logPerPage;
+
+// Hitung total log aktivitas
+$totalLogs = 0;
+try {
+    $countStmt = $pdo->query("
+        SELECT COUNT(*) 
+        FROM activity_logs al
+        WHERE 
+            (al.entity_type IS NULL OR al.entity_type NOT IN ('transaction', 'transaction_detail', 'stock', 'stock_history'))
+            AND al.action NOT LIKE 'transaction_%'
+            AND al.action NOT LIKE 'stock_%'
+    ");
+    $totalLogs = (int)$countStmt->fetchColumn();
+} catch (Exception $e) {
+    $totalLogs = 0;
+}
+
+$logTotalPages = max(1, ceil($totalLogs / $logPerPage));
+
+// Ambil log dengan pagination dan urutkan terbaru ke terlama
 $activityLogs = [];
 try {
-    $stmtLogs = $pdo->query("
+    $stmtLogs = $pdo->prepare("
         SELECT 
             al.action,
             al.entity_type,
@@ -47,8 +70,9 @@ try {
             AND al.action NOT LIKE 'transaction_%'
             AND al.action NOT LIKE 'stock_%'
         ORDER BY al.created_at DESC
-        LIMIT 20
+        LIMIT ? OFFSET ?
     ");
+    $stmtLogs->execute([$logPerPage, $logOffset]);
     $activityLogs = $stmtLogs->fetchAll();
 } catch (Exception $e) {
     $activityLogs = [];
@@ -74,6 +98,11 @@ if ($editUser) {
 }
 
 $msg = $_GET['msg'] ?? '';
+
+// ✅ Data User untuk Avatar
+$initials = strtoupper(substr($_SESSION['full_name'], 0, 2));
+$role = $_SESSION['role'];
+$roleIcon = $role === 'admin' ? '🛡️' : '🛒';
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -282,6 +311,59 @@ $msg = $_GET['msg'] ?? '';
             margin-bottom: 10px;
             border-left: 4px solid var(--primary);
         }
+
+        /* ✅ Log Pagination Mini */
+        .log-pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 4px;
+            padding: 16px 0 8px;
+            flex-wrap: wrap;
+        }
+
+        .log-page-btn {
+            min-width: 32px;
+            height: 32px;
+            padding: 0 8px;
+            border-radius: 8px;
+            border: 1.5px solid #e5e7eb;
+            background: white;
+            color: #374151;
+            font-weight: 600;
+            font-size: 0.8rem;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            text-decoration: none;
+        }
+
+        .log-page-btn:hover:not(.disabled):not(.active) {
+            border-color: var(--primary);
+            color: var(--primary);
+            background: rgba(79, 70, 229, 0.05);
+        }
+
+        .log-page-btn.active {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: white;
+        }
+
+        .log-page-btn.disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
+        .log-info {
+            font-size: 0.75rem;
+            color: #6b7280;
+            text-align: center;
+            padding-top: 8px;
+        }
     </style>
 </head>
 
@@ -290,10 +372,44 @@ $msg = $_GET['msg'] ?? '';
     <!-- SIDEBAR -->
     <div class="sidebar" id="sidebar">
         <div class="brand">🏪 Mini PoS</div>
-        <div class="user-info">
-            <div class="name"><?= htmlspecialchars($_SESSION['full_name']) ?></div>
-            <div class="role"><?= $_SESSION['role'] ?></div>
+        
+        <!-- USER INFO MODERN DENGAN DROPDOWN -->
+        <div class="user-info-wrapper" id="userWrapper">
+            <div class="user-info" onclick="toggleUserDropdown(event)">
+                <div class="user-avatar <?= $role ?>"><?= $initials ?></div>
+                <div class="user-details">
+                    <div class="user-name"><?= htmlspecialchars($_SESSION['full_name']) ?></div>
+                    <span class="user-role-badge <?= $role ?>"><?= $roleIcon ?> <?= ucfirst($role) ?></span>
+                </div>
+                <span class="user-dropdown-icon">▼</span>
+            </div>
+            
+            <div class="user-dropdown">
+                <div class="dropdown-header">
+                    <div class="label">Login sebagai</div>
+                    <div class="value">@<?= htmlspecialchars($_SESSION['username']) ?></div>
+                </div>
+                
+                <a href="profile.php">
+                    <span class="dropdown-icon">👤</span> Edit Profil
+                </a>
+                
+                <?php if ($role === 'admin'): ?>
+                    <a href="settings.php">
+                        <span class="dropdown-icon">⚙️</span> Pengaturan Toko
+                    </a>
+                    <a href="users.php?edit=<?= $_SESSION['user_id'] ?>">
+                        <span class="dropdown-icon">🔑</span> Ganti Password
+                    </a>
+                    <div class="divider"></div>
+                <?php endif; ?>
+                
+                <a href="logout.php" class="danger">
+                    <span class="dropdown-icon">🚪</span> Logout
+                </a>
+            </div>
         </div>
+        
         <nav>
             <?php if (hasRole('admin')): ?>
                 <a href="dashboard.php" class="nav-link">📊 Dashboard</a>
@@ -303,6 +419,7 @@ $msg = $_GET['msg'] ?? '';
             <?php if (hasRole('admin')): ?>
                 <a href="products.php" class="nav-link">📦 Produk</a>
                 <a href="kitchen.php" class="nav-link">🍳 Dapur</a>
+                <a href="settings.php" class="nav-link">⚙️ Pengaturan</a>
             <?php endif; ?>
             <a href="history.php" class="nav-link">📜 Riwayat</a>
         </nav>
@@ -681,12 +798,22 @@ $msg = $_GET['msg'] ?? '';
                     </div>
                 </div>
 
-                <!-- ✅ LOG AKTIVITAS TERBARU -->
+                <!-- ✅ LOG AKTIVITAS TERBARU DENGAN PAGINATION -->
                 <div class="card border-0 shadow-sm mt-3">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <span>📋 Log Aktivitas Terbaru</span>
+                    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <div>
+                            <span class="fw-bold">📋 Log Aktivitas Terbaru</span>
+                            <small class="text-muted d-block" style="font-size:0.75rem;">
+                                Diurutkan dari terbaru ke terlama · <?= $logPerPage ?> per halaman
+                            </small>
+                        </div>
                         <div class="d-flex align-items-center gap-2">
-                            <span class="badge bg-light text-dark border"><?= count($activityLogs) ?></span>
+                            <span class="badge bg-light text-dark border"><?= $totalLogs ?> total</span>
+                            <?php if ($logTotalPages > 1): ?>
+                                <span class="badge bg-primary px-2 py-1" style="font-size:0.7rem;">
+                                    Hal <?= $logPage ?>/<?= $logTotalPages ?>
+                                </span>
+                            <?php endif; ?>
                             <a href="history.php?tab=users" class="btn btn-sm btn-outline-primary px-3">
                                 Lihat Semua →
                             </a>
@@ -770,6 +897,74 @@ $msg = $_GET['msg'] ?? '';
                                     </div>
                                 </div>
                             <?php endforeach; ?>
+
+                            <!-- ✅ PAGINATION LOG AKTIVITAS -->
+                            <?php if ($logTotalPages > 1): ?>
+                                <div class="log-pagination border-top mt-3 pt-3">
+                                    <?php
+                                    // Helper untuk build URL log pagination (preserve edit & page params)
+                                    $buildLogUrl = function($p) use ($editUser, $page) {
+                                        $params = ['log_page' => $p];
+                                        if ($page > 1) $params['page'] = $page;
+                                        if ($editUser) $params['edit'] = $editUser['id'];
+                                        return '?' . http_build_query($params);
+                                    };
+                                    ?>
+                                    
+                                    <?php if ($logPage > 1): ?>
+                                        <a href="<?= $buildLogUrl(1) ?>" class="log-page-btn" title="Halaman pertama">
+                                            <i class="bi bi-chevron-bar-left"></i>
+                                        </a>
+                                        <a href="<?= $buildLogUrl($logPage - 1) ?>" class="log-page-btn" title="Sebelumnya">
+                                            <i class="bi bi-chevron-left"></i>
+                                        </a>
+                                    <?php else: ?>
+                                        <span class="log-page-btn disabled"><i class="bi bi-chevron-bar-left"></i></span>
+                                        <span class="log-page-btn disabled"><i class="bi bi-chevron-left"></i></span>
+                                    <?php endif; ?>
+
+                                    <?php
+                                    $logStartPage = max(1, $logPage - 2);
+                                    $logEndPage = min($logTotalPages, $logPage + 2);
+                                    
+                                    if ($logStartPage > 1) {
+                                        echo '<a href="' . $buildLogUrl(1) . '" class="log-page-btn">1</a>';
+                                        if ($logStartPage > 2) echo '<span class="log-page-btn disabled">...</span>';
+                                    }
+                                    
+                                    for ($i = $logStartPage; $i <= $logEndPage; $i++):
+                                    ?>
+                                        <a href="<?= $buildLogUrl($i) ?>" 
+                                           class="log-page-btn <?= $i === $logPage ? 'active' : '' ?>">
+                                            <?= $i ?>
+                                        </a>
+                                    <?php endfor;
+                                    
+                                    if ($logEndPage < $logTotalPages - 1) {
+                                        echo '<span class="log-page-btn disabled">...</span>';
+                                    }
+                                    if ($logEndPage < $logTotalPages) {
+                                        echo '<a href="' . $buildLogUrl($logTotalPages) . '" class="log-page-btn">' . $logTotalPages . '</a>';
+                                    }
+                                    ?>
+
+                                    <?php if ($logPage < $logTotalPages): ?>
+                                        <a href="<?= $buildLogUrl($logPage + 1) ?>" class="log-page-btn" title="Berikutnya">
+                                            <i class="bi bi-chevron-right"></i>
+                                        </a>
+                                        <a href="<?= $buildLogUrl($logTotalPages) ?>" class="log-page-btn" title="Halaman terakhir">
+                                            <i class="bi bi-chevron-bar-right"></i>
+                                        </a>
+                                    <?php else: ?>
+                                        <span class="log-page-btn disabled"><i class="bi bi-chevron-right"></i></span>
+                                        <span class="log-page-btn disabled"><i class="bi bi-chevron-bar-right"></i></span>
+                                    <?php endif; ?>
+                                </div>
+                                
+                                <div class="log-info">
+                                    Menampilkan <?= (($logPage - 1) * $logPerPage) + 1 ?> - <?= min($logPage * $logPerPage, $totalLogs) ?> dari <?= $totalLogs ?> log
+                                </div>
+                            <?php endif; ?>
                         <?php endif; ?>
                     </div>
                 </div>
@@ -934,6 +1129,26 @@ $msg = $_GET['msg'] ?? '';
             document.getElementById('sidebar').classList.toggle('show');
             document.getElementById('sidebarOverlay').classList.toggle('show');
         }
+
+        function toggleUserDropdown(event) {
+            event.stopPropagation();
+            const wrapper = document.getElementById('userWrapper');
+            if (wrapper) wrapper.classList.toggle('open');
+        }
+
+        document.addEventListener('click', function(e) {
+            const wrapper = document.getElementById('userWrapper');
+            if (wrapper && !wrapper.contains(e.target)) {
+                wrapper.classList.remove('open');
+            }
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                const wrapper = document.getElementById('userWrapper');
+                if (wrapper) wrapper.classList.remove('open');
+            }
+        });
 
         function togglePassword(inputId, btn) {
             const input = document.getElementById(inputId);

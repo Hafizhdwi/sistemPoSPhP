@@ -52,6 +52,11 @@ if (hasRole('admin')) {
         $userActivities = [];
     }
 }
+
+// ✅ Data User untuk Avatar
+$initials = strtoupper(substr($_SESSION['full_name'], 0, 2));
+$role = $_SESSION['role'];
+$roleIcon = $role === 'admin' ? '🛡️' : '🛒';
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -74,10 +79,44 @@ if (hasRole('admin')) {
     <!-- SIDEBAR -->
     <div class="sidebar" id="sidebar">
         <div class="brand">🏪 Mini PoS</div>
-        <div class="user-info">
-            <div class="name"><?= htmlspecialchars($_SESSION['full_name']) ?></div>
-            <div class="role"><?= $_SESSION['role'] ?></div>
+        
+        <!-- ✅ USER INFO MODERN DENGAN DROPDOWN -->
+        <div class="user-info-wrapper" id="userWrapper">
+            <div class="user-info" onclick="toggleUserDropdown(event)">
+                <div class="user-avatar <?= $role ?>"><?= $initials ?></div>
+                <div class="user-details">
+                    <div class="user-name"><?= htmlspecialchars($_SESSION['full_name']) ?></div>
+                    <span class="user-role-badge <?= $role ?>"><?= $roleIcon ?> <?= ucfirst($role) ?></span>
+                </div>
+                <span class="user-dropdown-icon">▼</span>
+            </div>
+            
+            <div class="user-dropdown">
+                <div class="dropdown-header">
+                    <div class="label">Login sebagai</div>
+                    <div class="value">@<?= htmlspecialchars($_SESSION['username']) ?></div>
+                </div>
+                
+                <a href="profile.php">
+                    <span class="dropdown-icon">👤</span> Edit Profil
+                </a>
+                
+                <?php if ($role === 'admin'): ?>
+                    <a href="settings.php">
+                        <span class="dropdown-icon">⚙️</span> Pengaturan Toko
+                    </a>
+                    <a href="users.php?edit=<?= $_SESSION['user_id'] ?>">
+                        <span class="dropdown-icon">🔑</span> Ganti Password
+                    </a>
+                    <div class="divider"></div>
+                <?php endif; ?>
+                
+                <a href="logout.php" class="danger">
+                    <span class="dropdown-icon">🚪</span> Logout
+                </a>
+            </div>
         </div>
+        
         <nav>
             <?php if (hasRole('admin')): ?>
                 <a href="dashboard.php" class="nav-link">📊 Dashboard</a>
@@ -86,7 +125,10 @@ if (hasRole('admin')) {
             <a href="index.php" class="nav-link">🛒 Kasir</a>
             <?php if (hasRole('admin')): ?>
                 <a href="products.php" class="nav-link">📦 Produk</a>
-                <a href="kitchen.php" class="nav-link">🍳 Dapur</a>
+            <?php endif; ?>
+            <a href="kitchen.php" class="nav-link">🍳 Dapur</a>
+            <?php if (hasRole('admin')): ?>
+                <a href="settings.php" class="nav-link">⚙️ Pengaturan</a>
             <?php endif; ?>
             <a href="history.php" class="nav-link active">📜 Riwayat</a>
         </nav>
@@ -431,11 +473,34 @@ if (hasRole('admin')) {
     </div>
 
     <script>
+        // ==================== SIDEBAR TOGGLE ====================
         function toggleSidebar() {
             document.getElementById('sidebar').classList.toggle('show');
             document.getElementById('sidebarOverlay').classList.toggle('show');
         }
 
+        // ==================== USER DROPDOWN ====================
+        function toggleUserDropdown(event) {
+            event.stopPropagation();
+            const wrapper = document.getElementById('userWrapper');
+            if (wrapper) wrapper.classList.toggle('open');
+        }
+
+        document.addEventListener('click', function(e) {
+            const wrapper = document.getElementById('userWrapper');
+            if (wrapper && !wrapper.contains(e.target)) {
+                wrapper.classList.remove('open');
+            }
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                const wrapper = document.getElementById('userWrapper');
+                if (wrapper) wrapper.classList.remove('open');
+            }
+        });
+
+        // ==================== UPDATE ORDER STATUS ====================
         function updateOrderStatus(orderId, newStatus) {
             if (!confirm('Yakin ubah status pesanan ini?')) return;
             const formData = new FormData();

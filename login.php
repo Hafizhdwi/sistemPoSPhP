@@ -71,34 +71,60 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (empty($username) || empty($password)) {
         $error = 'Username dan password harus diisi!';
-    } elseif (loginUser($pdo, $username, $password)) {
-        // ✅ Catat login berhasil
-        safeLogActivity(
-            $pdo,
-            'login_success',
-            'user',
-            (int)$_SESSION['user_id'],
-            "User {$_SESSION['full_name']} login sebagai {$_SESSION['role']}"
-        );
-
-        if (!empty($redirect)) {
-            header('Location: ' . $redirect);
-        } else {
-            $redirectUrl = ($_SESSION['role'] === 'admin') ? 'dashboard.php' : 'index.php';
-            header('Location: ' . $redirectUrl);
-        }
-        exit;
     } else {
-        $error = 'Username atau password salah!';
+        // ✅ Ambil user dulu untuk cek password manual
+        $stmtUser = $pdo->prepare("SELECT * FROM users WHERE username = ? AND is_active = 1");
+        $stmtUser->execute([$username]);
+        $user = $stmtUser->fetch();
 
-        // ✅ Catat login gagal
-        safeLogActivity(
-            $pdo,
-            'login_failed',
-            null,
-            null,
-            "Percobaan login gagal untuk username: {$username}"
-        );
+        if ($user && password_verify($password, $user['password_hash'])) {
+            // ✅ AUTO-REHASH jika hash lama perlu diupgrade
+            // (misal PHP update versi, cost factor berubah, dll)
+            if (password_needs_rehash($user['password_hash'], PASSWORD_DEFAULT)) {
+                try {
+                    $newHash = password_hash($password, PASSWORD_DEFAULT);
+                    $stmtRehash = $pdo->prepare("UPDATE users SET password_hash = ? WHERE id = ?");
+                    $stmtRehash->execute([$newHash, $user['id']]);
+                } catch (Exception $e) {
+                    error_log('Auto rehash failed: ' . $e->getMessage());
+                }
+            }
+
+            // ✅ Set session manual (karena kita sudah punya data user)
+            $_SESSION['user_id'] = $user['id'];
+            $_SESSION['username'] = $user['username'];
+            $_SESSION['full_name'] = $user['full_name'];
+            $_SESSION['role'] = $user['role'];
+            $_SESSION['logged_in'] = true;
+
+            // ✅ Catat login berhasil
+            safeLogActivity(
+                $pdo,
+                'login_success',
+                'user',
+                (int)$user['id'],
+                "User {$user['full_name']} login sebagai {$user['role']}"
+            );
+
+            if (!empty($redirect)) {
+                header('Location: ' . $redirect);
+            } else {
+                $redirectUrl = ($user['role'] === 'admin') ? 'dashboard.php' : 'index.php';
+                header('Location: ' . $redirectUrl);
+            }
+            exit;
+        } else {
+            $error = 'Username atau password salah!';
+
+            // ✅ Catat login gagal
+            safeLogActivity(
+                $pdo,
+                'login_failed',
+                null,
+                null,
+                "Percobaan login gagal untuk username: {$username}"
+            );
+        }
     }
 }
 ?>

@@ -46,6 +46,16 @@ if (isset($_GET['success'])) {
     $successMsg = "Transaksi Berhasil! Kembalian: " . formatRupiah($change);
     $invoiceNumber = $_GET['invoice'] ?? '';
 }
+
+// ✅ Ambil setting pajak untuk JavaScript
+$taxEnabled = getSetting($pdo, 'tax_enabled', '0') == '1';
+$taxRate = floatval(getSetting($pdo, 'tax_rate', '0'));
+$taxLabel = getSetting($pdo, 'tax_label', 'Pajak');
+
+// ✅ Data User untuk Avatar
+$initials = strtoupper(substr($_SESSION['full_name'], 0, 2));
+$role = $_SESSION['role'];
+$roleIcon = $role === 'admin' ? '🛡️' : '🛒';
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -161,10 +171,44 @@ if (isset($_GET['success'])) {
     <!-- SIDEBAR -->
     <div class="sidebar" id="sidebar">
         <div class="brand">🏪 Mini PoS</div>
-        <div class="user-info">
-            <div class="name"><?= htmlspecialchars($_SESSION['full_name']) ?></div>
-            <div class="role"><?= $_SESSION['role'] ?></div>
+        
+        <!-- ✅ USER INFO MODERN DENGAN DROPDOWN -->
+        <div class="user-info-wrapper" id="userWrapper">
+            <div class="user-info" onclick="toggleUserDropdown(event)">
+                <div class="user-avatar <?= $role ?>"><?= $initials ?></div>
+                <div class="user-details">
+                    <div class="user-name"><?= htmlspecialchars($_SESSION['full_name']) ?></div>
+                    <span class="user-role-badge <?= $role ?>"><?= $roleIcon ?> <?= ucfirst($role) ?></span>
+                </div>
+                <span class="user-dropdown-icon">▼</span>
+            </div>
+            
+            <div class="user-dropdown">
+                <div class="dropdown-header">
+                    <div class="label">Login sebagai</div>
+                    <div class="value">@<?= htmlspecialchars($_SESSION['username']) ?></div>
+                </div>
+                
+                <a href="profile.php">
+                    <span class="dropdown-icon">👤</span> Edit Profil
+                </a>
+                
+                <?php if ($role === 'admin'): ?>
+                    <a href="settings.php">
+                        <span class="dropdown-icon">⚙️</span> Pengaturan Toko
+                    </a>
+                    <a href="users.php?edit=<?= $_SESSION['user_id'] ?>">
+                        <span class="dropdown-icon">🔑</span> Ganti Password
+                    </a>
+                    <div class="divider"></div>
+                <?php endif; ?>
+                
+                <a href="logout.php" class="danger">
+                    <span class="dropdown-icon">🚪</span> Logout
+                </a>
+            </div>
         </div>
+        
         <nav>
             <?php if (hasRole('admin')): ?>
                 <a href="dashboard.php" class="nav-link">📊 Dashboard</a>
@@ -175,6 +219,9 @@ if (isset($_GET['success'])) {
                 <a href="products.php" class="nav-link">📦 Produk</a>
             <?php endif; ?>
             <a href="kitchen.php" class="nav-link">🍳 Dapur</a>
+            <?php if (hasRole('admin')): ?>
+                <a href="settings.php" class="nav-link">⚙️ Pengaturan</a>
+            <?php endif; ?>
             <a href="history.php" class="nav-link">📜 Riwayat</a>
         </nav>
         <div class="sidebar-footer">
@@ -345,8 +392,11 @@ if (isset($_GET['success'])) {
                             </table>
                         </div>
                     </div>
-                    <div class="card-footer bg-white border-top p-3 p-md-4">
-                        <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div class="card-footer bg-white border-top p-3 p-md-4" id="cart-footer">
+                        <!-- ✅ Tempat untuk subtotal dan pajak (akan di-generate JS) -->
+                        <div id="cart-summary"></div>
+                        
+                        <div class="d-flex justify-content-between align-items-center mb-3" id="grand-total-wrapper">
                             <span class="text-muted fw-semibold">Total</span>
                             <h3 class="fw-bold text-dark m-0" id="grand-total">Rp 0</h3>
                         </div>
@@ -376,6 +426,27 @@ if (isset($_GET['success'])) {
             document.getElementById('sidebar').classList.toggle('show');
             document.getElementById('sidebarOverlay').classList.toggle('show');
         }
+
+        // ==================== USER DROPDOWN ====================
+        function toggleUserDropdown(event) {
+            event.stopPropagation();
+            const wrapper = document.getElementById('userWrapper');
+            if (wrapper) wrapper.classList.toggle('open');
+        }
+
+        document.addEventListener('click', function(e) {
+            const wrapper = document.getElementById('userWrapper');
+            if (wrapper && !wrapper.contains(e.target)) {
+                wrapper.classList.remove('open');
+            }
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                const wrapper = document.getElementById('userWrapper');
+                if (wrapper) wrapper.classList.remove('open');
+            }
+        });
 
         // ==================== SEARCH ====================
         const searchInput = document.getElementById('productSearch');
@@ -418,6 +489,19 @@ if (isset($_GET['success'])) {
 
         // ==================== CART LOGIC ====================
         let cart = [];
+        
+        // ✅ Setting pajak dari PHP
+        const TAX_ENABLED = <?= $taxEnabled ? 'true' : 'false' ?>;
+        const TAX_RATE = <?= $taxRate ?>;
+        const TAX_LABEL = '<?= addslashes($taxLabel) ?>';
+
+        function formatCurrency(amount) {
+            return amount.toLocaleString('id-ID', {
+                style: 'currency',
+                currency: 'IDR',
+                minimumFractionDigits: 0
+            });
+        }
 
         function addToCart(id, name, price) {
             const existing = cart.find(item => item.id === id);
@@ -446,35 +530,62 @@ if (isset($_GET['success'])) {
 
         function renderCart() {
             const tbody = document.getElementById('cart-body');
+            const summary = document.getElementById('cart-summary');
             tbody.innerHTML = '';
-            let total = 0;
+            summary.innerHTML = '';
+            let subtotal = 0;
 
             if (cart.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="4" class="text-center py-4 text-muted">
-            <div style="font-size:2rem;">🛒</div><small>Keranjang kosong</small>
-        </td></tr>`;
-            } else {
-                cart.forEach(item => {
-                    const sub = item.price * item.qty;
-                    total += sub;
-                    tbody.innerHTML += `<tr>
-                <td class="ps-3"><div class="fw-semibold">${item.name}</div></td>
-                <td>
-                    <div class="qty-btn" onclick="updateQty(${item.id},-1)">−</div>
-                    <span class="mx-1 mx-md-2 fw-bold">${item.qty}</span>
-                    <div class="qty-btn" onclick="updateQty(${item.id},1)">+</div>
-                </td>
-                <td class="text-end fw-semibold">${sub.toLocaleString('id-ID',{style:'currency',currency:'IDR',minimumFractionDigits:0})}</td>
-                <td class="text-center"><button class="btn btn-sm text-danger p-0" onclick="removeFromCart(${item.id})">✕</button></td>
-            </tr>`;
-                });
+                    <div style="font-size:2rem;">🛒</div><small>Keranjang kosong</small>
+                </td></tr>`;
+                document.getElementById('grand-total').innerText = 'Rp 0';
+                document.getElementById('cart-count').innerText = '0 item';
+                document.getElementById('cart-data').value = '[]';
+                document.getElementById('btn-checkout').disabled = true;
+                return;
             }
 
-            document.getElementById('grand-total').innerText = total.toLocaleString('id-ID', {
-                style: 'currency',
-                currency: 'IDR',
-                minimumFractionDigits: 0
+            cart.forEach(item => {
+                const sub = item.price * item.qty;
+                subtotal += sub;
+                tbody.innerHTML += `<tr>
+                    <td class="ps-3"><div class="fw-semibold">${item.name}</div></td>
+                    <td>
+                        <div class="qty-btn" onclick="updateQty(${item.id},-1)">−</div>
+                        <span class="mx-1 mx-md-2 fw-bold">${item.qty}</span>
+                        <div class="qty-btn" onclick="updateQty(${item.id},1)">+</div>
+                    </td>
+                    <td class="text-end fw-semibold">${formatCurrency(sub)}</td>
+                    <td class="text-center"><button class="btn btn-sm text-danger p-0" onclick="removeFromCart(${item.id})">✕</button></td>
+                </tr>`;
             });
+
+            // ✅ Hitung pajak
+            let taxAmount = 0;
+            if (TAX_ENABLED && TAX_RATE > 0) {
+                taxAmount = Math.round(subtotal * TAX_RATE / 100);
+                
+                // Tampilkan baris subtotal
+                summary.innerHTML += `
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <span class="text-muted small">Subtotal</span>
+                        <span class="small fw-semibold">${formatCurrency(subtotal)}</span>
+                    </div>
+                `;
+                
+                // Tampilkan baris pajak
+                summary.innerHTML += `
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <span class="text-muted small">${TAX_LABEL}</span>
+                        <span class="small fw-semibold">${formatCurrency(taxAmount)}</span>
+                    </div>
+                `;
+            }
+
+            const grandTotal = subtotal + taxAmount;
+
+            document.getElementById('grand-total').innerText = formatCurrency(grandTotal);
             document.getElementById('cart-count').innerText = cart.reduce((a, b) => a + b.qty, 0) + ' item';
             document.getElementById('cart-data').value = JSON.stringify(cart);
             document.getElementById('btn-checkout').disabled = cart.length === 0;
@@ -514,7 +625,6 @@ if (isset($_GET['success'])) {
                     const newPanel = doc.querySelector('.pending-panel');
                     const existingPanel = document.querySelector('.pending-panel');
 
-                    // Extract IDs dari panel baru
                     const newIds = [];
                     if (newPanel) {
                         newPanel.querySelectorAll('a[href*="process_order"]').forEach(link => {
@@ -523,14 +633,12 @@ if (isset($_GET['success'])) {
                         });
                     }
 
-                    // Cek order baru
                     const hasNew = newIds.some(id => !knownPendingIds.includes(id));
                     if (hasNew) {
                         playCashierAlert();
                         showCashierToast();
                     }
 
-                    // Update panel
                     if (newPanel && !existingPanel) {
                         const mobileHeader = document.querySelector('.mobile-header');
                         if (mobileHeader) mobileHeader.insertAdjacentElement('afterend', newPanel);

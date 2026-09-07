@@ -56,27 +56,6 @@ body {
     flex-shrink: 0;
 }
 
-.sidebar .user-info {
-    padding: 16px 20px;
-    border-bottom: 1px solid rgba(255,255,255,0.1);
-    flex-shrink: 0;
-}
-
-.sidebar .user-info .name {
-    color: white;
-    font-weight: 600;
-    font-size: 0.9rem;
-    margin-bottom: 2px;
-}
-
-.sidebar .user-info .role {
-    color: rgba(255,255,255,0.5);
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    font-weight: 600;
-}
-
 .sidebar nav {
     flex-grow: 1;
     padding: 12px 0;
@@ -122,6 +101,321 @@ body {
     border-top: 1px solid rgba(255,255,255,0.1);
     flex-shrink: 0;
     margin-top: auto;
+}
+
+/* ============================================
+   USER INFO CARD - MODERN DROPDOWN ✨
+   ============================================ */
+.user-info-wrapper {
+    padding: 8px 12px;
+    position: relative;
+}
+
+.user-info {
+    padding: 12px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.08);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    border: 1px solid transparent;
+    position: relative;
+}
+
+.user-info:hover {
+    background: rgba(255, 255, 255, 0.14);
+    border-color: rgba(255, 255, 255, 0.1);
+    transform: translateY(-1px);
+}
+
+/* Avatar dengan gradient */
+.user-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 800;
+    font-size: 1rem;
+    flex-shrink: 0;
+    position: relative;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+}
+
+.user-avatar.admin {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.user-avatar.kasir {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+}
+
+/* Online indicator dengan pulse animation */
+.user-avatar::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    right: -2px;
+    width: 12px;
+    height: 12px;
+    background: #22c55e;
+    border: 2.5px solid #1a1f36;
+    border-radius: 50%;
+    animation: pulseOnline 2s infinite;
+}
+
+@keyframes pulseOnline {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+    50% { box-shadow: 0 0 0 5px rgba(34, 197, 94, 0); }
+}
+
+.user-details {
+    flex: 1;
+    min-width: 0;
+}
+
+.user-name {
+    color: white;
+    font-weight: 700;
+    font-size: 0.9rem;
+    margin: 0 0 3px 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.2;
+}
+
+/* Badge role dengan icon */
+.user-role-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 0.62rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.user-role-badge.admin {
+    background: rgba(102, 126, 234, 0.3);
+    color: #c7d2fe;
+    border: 1px solid rgba(102, 126, 234, 0.4);
+}
+
+.user-role-badge.kasir {
+    background: rgba(16, 185, 129, 0.25);
+    color: #a7f3d0;
+    border: 1px solid rgba(16, 185, 129, 0.4);
+}
+
+.user-dropdown-icon {
+    color: rgba(255,255,255,0.4);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    font-size: 0.7rem;
+}
+
+.user-info-wrapper.open .user-dropdown-icon {
+    transform: rotate(180deg);
+}
+
+.user-info-wrapper.open .user-info {
+    background: rgba(255, 255, 255, 0.14);
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+/* Dropdown Menu */
+.user-dropdown {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 12px;
+    right: 12px;
+    background: white;
+    border-radius: 14px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.35);
+    padding: 6px;
+    z-index: 1000;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-10px) scale(0.98);
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.user-info-wrapper.open .user-dropdown {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0) scale(1);
+}
+
+.dropdown-header {
+    padding: 10px 12px;
+    border-bottom: 1px solid #f3f4f6;
+    margin-bottom: 6px;
+}
+
+.dropdown-header .label {
+    font-size: 0.65rem;
+    color: #9ca3af;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 700;
+    margin-bottom: 2px;
+}
+
+.dropdown-header .value {
+    font-size: 0.75rem;
+    color: #6b7280;
+    font-weight: 600;
+}
+
+.user-dropdown a {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    color: #374151;
+    text-decoration: none;
+    border-radius: 10px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    transition: all 0.15s ease;
+}
+
+.user-dropdown a:hover {
+    background: #f3f4f6;
+    color: #1f2937;
+    transform: translateX(2px);
+}
+
+.user-dropdown a .dropdown-icon {
+    font-size: 1rem;
+    width: 20px;
+    text-align: center;
+}
+
+.user-dropdown .divider {
+    height: 1px;
+    background: #e5e7eb;
+    margin: 6px 4px;
+}
+
+.user-dropdown a.danger {
+    color: #dc2626;
+}
+
+.user-dropdown a.danger:hover {
+    background: #fef2f2;
+    color: #b91c1c;
+}
+
+/* ============================================
+   PROFILE PAGE STYLES ✨
+   ============================================ */
+.profile-header-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 20px;
+    padding: 30px;
+    color: white;
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 24px;
+}
+
+.profile-header-card::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -10%;
+    width: 300px;
+    height: 300px;
+    background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%);
+    border-radius: 50%;
+}
+
+.profile-header-card.kasir-theme {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+}
+
+.profile-avatar-large {
+    width: 90px;
+    height: 90px;
+    border-radius: 20px;
+    background: rgba(255,255,255,0.2);
+    backdrop-filter: blur(10px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 800;
+    font-size: 2rem;
+    border: 3px solid rgba(255,255,255,0.3);
+    flex-shrink: 0;
+}
+
+.profile-stat-box {
+    background: rgba(255,255,255,0.15);
+    backdrop-filter: blur(10px);
+    border-radius: 12px;
+    padding: 12px 16px;
+    border: 1px solid rgba(255,255,255,0.2);
+}
+
+.profile-stat-box .label {
+    font-size: 0.7rem;
+    opacity: 0.8;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+}
+
+.profile-stat-box .value {
+    font-size: 0.95rem;
+    font-weight: 700;
+}
+
+.security-item {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px;
+    border-radius: 12px;
+    background: #f9fafb;
+    margin-bottom: 12px;
+    border: 1px solid #e5e7eb;
+    transition: all 0.2s;
+}
+
+.security-item:hover {
+    border-color: var(--primary);
+    background: #fefce8;
+}
+
+.security-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.3rem;
+    flex-shrink: 0;
+}
+
+.security-icon.warning {
+    background: #fef3c7;
+}
+
+.security-icon.success {
+    background: #dcfce7;
+}
+
+.security-icon.info {
+    background: #dbeafe;
 }
 
 /* ============================================
@@ -474,6 +768,18 @@ body {
     
     h1, h2, h3 { font-size: 1.3rem !important; }
     h4, h5 { font-size: 1.1rem !important; }
+    
+    .profile-header-card { padding: 20px; }
+    .profile-avatar-large { 
+        width: 70px; 
+        height: 70px; 
+        font-size: 1.6rem; 
+    }
+    
+    .user-dropdown {
+        left: 8px;
+        right: 8px;
+    }
 }
 
 /* Utility untuk print */

@@ -12,6 +12,11 @@ $orders = $pdo->query("
     GROUP BY t.id
     ORDER BY t.transaction_date ASC
 ")->fetchAll();
+
+// ✅ Data User untuk Avatar Mini di Header
+$initials = strtoupper(substr($_SESSION['full_name'], 0, 2));
+$role = $_SESSION['role'];
+$roleIcon = $role === 'admin' ? '🛡️' : '🛒';
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -82,13 +87,10 @@ $orders = $pdo->query("
         }
 
         @keyframes pulse {
-
-            0%,
-            100% {
+            0%, 100% {
                 opacity: 1;
                 transform: scale(1);
             }
-
             50% {
                 opacity: 0.5;
                 transform: scale(1.3);
@@ -233,6 +235,162 @@ $orders = $pdo->query("
             color: white;
         }
 
+        /* Navigation links */
+        .kitchen-nav {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .kitchen-nav a {
+            color: rgba(255, 255, 255, 0.5);
+            text-decoration: none;
+            font-size: 0.85rem;
+            padding: 4px 12px;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+
+        .kitchen-nav a:hover {
+            color: white;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        /* ✅ Kitchen User Info - Mini Version */
+        .kitchen-user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(255, 255, 255, 0.08);
+            padding: 8px 14px;
+            border-radius: 50px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .kitchen-user-info:hover {
+            background: rgba(255, 255, 255, 0.14);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .kitchen-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 800;
+            font-size: 0.85rem;
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        .kitchen-avatar.admin {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .kitchen-avatar.kasir {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        }
+
+        .kitchen-avatar::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            width: 10px;
+            height: 10px;
+            background: #22c55e;
+            border: 2px solid var(--kitchen-bg);
+            border-radius: 50%;
+        }
+
+        .kitchen-user-name {
+            color: white;
+            font-weight: 600;
+            font-size: 0.85rem;
+            white-space: nowrap;
+        }
+
+        .kitchen-user-dropdown {
+            position: absolute;
+            top: calc(100% + 8px);
+            right: 0;
+            background: white;
+            border-radius: 14px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+            padding: 6px;
+            z-index: 1000;
+            min-width: 220px;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(-10px) scale(0.98);
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .kitchen-user-info-wrapper.open .kitchen-user-dropdown {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0) scale(1);
+        }
+
+        .kitchen-user-dropdown .dropdown-header {
+            padding: 10px 12px;
+            border-bottom: 1px solid #f3f4f6;
+            margin-bottom: 6px;
+        }
+
+        .kitchen-user-dropdown .dropdown-header .label {
+            font-size: 0.65rem;
+            color: #9ca3af;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 700;
+            margin-bottom: 2px;
+        }
+
+        .kitchen-user-dropdown .dropdown-header .value {
+            font-size: 0.75rem;
+            color: #6b7280;
+            font-weight: 600;
+        }
+
+        .kitchen-user-dropdown a {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            color: #374151;
+            text-decoration: none;
+            border-radius: 10px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            transition: all 0.15s ease;
+        }
+
+        .kitchen-user-dropdown a:hover {
+            background: #f3f4f6;
+            color: #1f2937;
+        }
+
+        .kitchen-user-dropdown a.danger {
+            color: #dc2626;
+        }
+
+        .kitchen-user-dropdown a.danger:hover {
+            background: #fef2f2;
+        }
+
+        .kitchen-user-dropdown .divider {
+            height: 1px;
+            background: #e5e7eb;
+            margin: 6px 4px;
+        }
+
         /* Notification toast */
         .toast-notification {
             position: fixed;
@@ -265,6 +423,10 @@ $orders = $pdo->query("
             .order-card .queue-num {
                 font-size: 1.5rem;
             }
+
+            .kitchen-user-name {
+                display: none;
+            }
         }
     </style>
 </head>
@@ -275,7 +437,16 @@ $orders = $pdo->query("
     <div class="kitchen-header">
         <div>
             <h1>🍳 Kitchen Display</h1>
-            <a href="index.php" class="back-link">← Kembali ke Kasir</a>
+            <div class="kitchen-nav mt-2">
+                <a href="index.php">← Kasir</a>
+                <?php if (hasRole('admin')): ?>
+                    <a href="dashboard.php">📊 Dashboard</a>
+                <?php endif; ?>
+                <a href="history.php">📜 Riwayat</a>
+                <?php if (hasRole('admin')): ?>
+                    <a href="settings.php">⚙️ Pengaturan</a>
+                <?php endif; ?>
+            </div>
         </div>
         <div class="d-flex align-items-center gap-3">
             <div class="live-indicator">
@@ -285,6 +456,36 @@ $orders = $pdo->query("
             <span class="badge bg-light text-dark px-3 py-2" id="orderCount">
                 <?= count($orders) ?> pesanan aktif
             </span>
+            
+            <!-- ✅ USER INFO MINI UNTUK KITCHEN -->
+            <div class="kitchen-user-info-wrapper" id="kitchenUserWrapper" style="position: relative;">
+                <div class="kitchen-user-info" onclick="toggleKitchenUserDropdown(event)">
+                    <div class="kitchen-avatar <?= $role ?>"><?= $initials ?></div>
+                    <span class="kitchen-user-name"><?= htmlspecialchars($_SESSION['full_name']) ?></span>
+                </div>
+                
+                <div class="kitchen-user-dropdown">
+                    <div class="dropdown-header">
+                        <div class="label">Login sebagai</div>
+                        <div class="value">@<?= htmlspecialchars($_SESSION['username']) ?> · <?= $roleIcon ?> <?= ucfirst($role) ?></div>
+                    </div>
+                    
+                    <a href="profile.php">
+                        <span>👤</span> Edit Profil
+                    </a>
+                    
+                    <?php if ($role === 'admin'): ?>
+                        <a href="settings.php">
+                            <span>⚙️</span> Pengaturan Toko
+                        </a>
+                        <div class="divider"></div>
+                    <?php endif; ?>
+                    
+                    <a href="logout.php" class="danger">
+                        <span>🚪</span> Logout
+                    </a>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -347,6 +548,27 @@ $orders = $pdo->query("
     </div>
 
     <script>
+        // ==================== USER DROPDOWN (KITCHEN VERSION) ====================
+        function toggleKitchenUserDropdown(event) {
+            event.stopPropagation();
+            const wrapper = document.getElementById('kitchenUserWrapper');
+            if (wrapper) wrapper.classList.toggle('open');
+        }
+
+        document.addEventListener('click', function(e) {
+            const wrapper = document.getElementById('kitchenUserWrapper');
+            if (wrapper && !wrapper.contains(e.target)) {
+                wrapper.classList.remove('open');
+            }
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                const wrapper = document.getElementById('kitchenUserWrapper');
+                if (wrapper) wrapper.classList.remove('open');
+            }
+        });
+
         // ==================== UPDATE STATUS ====================
         function updateStatus(orderId, newStatus) {
             const formData = new FormData();
@@ -360,7 +582,7 @@ $orders = $pdo->query("
                 .then(r => r.json())
                 .then(data => {
                     if (data.success) {
-                        location.reload(); // Refresh untuk update tampilan
+                        location.reload();
                     } else {
                         alert('❌ ' + data.error);
                     }
@@ -375,13 +597,11 @@ $orders = $pdo->query("
             fetch('kitchen.php?ajax=1')
                 .then(r => r.text())
                 .then(html => {
-                    // Parse response untuk ambil order IDs baru
                     const parser = new DOMParser();
                     const doc = parser.parseFromString(html, 'text/html');
                     const cards = doc.querySelectorAll('.order-card');
                     const newIds = Array.from(cards).map(c => parseInt(c.id.replace('order-', '')));
 
-                    // Cek apakah ada order baru
                     const hasNew = newIds.some(id => !knownOrderIds.includes(id));
 
                     if (hasNew) {
@@ -389,7 +609,6 @@ $orders = $pdo->query("
                         playNotificationSound();
                     }
 
-                    // Update grid
                     const newGrid = doc.getElementById('kitchenGrid');
                     if (newGrid) {
                         document.getElementById('kitchenGrid').innerHTML = newGrid.innerHTML;
@@ -399,7 +618,7 @@ $orders = $pdo->query("
                     knownOrderIds = newIds;
                 })
                 .catch(() => {});
-        }, 5000); // Polling setiap 5 detik
+        }, 5000);
 
         // ==================== NOTIFICATION ====================
         function showToast() {
@@ -409,7 +628,6 @@ $orders = $pdo->query("
         }
 
         function playNotificationSound() {
-            // Beep sound menggunakan Web Audio API
             try {
                 const ctx = new(window.AudioContext || window.webkitAudioContext)();
                 const oscillator = ctx.createOscillator();
