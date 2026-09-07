@@ -1,0 +1,89 @@
+/* ============================================
+   SETTINGS PAGE
+   ============================================ */
+.settings-card {
+    border-radius: 16px;
+    border: none;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.settings-card .card-header {
+    background: white;
+    border-bottom: 2px solid #f3f4f6;
+    padding: 20px 24px;
+    font-weight: 700;
+}
+
+.setting-group-title {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #6b7280;
+    font-weight: 700;
+    margin-top: 24px;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.setting-group-title:first-child { margin-top: 0; }
+
+.logo-preview {
+    width: 120px;
+    height: 120px;
+    border-radius: 16px;
+    border: 2px dashed #d1d5db;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    background: #f9fafb;
+    margin-bottom: 12px;
+}
+
+.logo-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.logo-preview .placeholder {
+    text-align: center;
+    color: #9ca3af;
+    font-size: 0.8rem;
+}
+
+.logo-preview .placeholder i {
+    font-size: 2rem;
+    display: block;
+    margin-bottom: 4px;
+}
+
+.receipt-preview {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 20px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.75rem;
+    max-width: 300px;
+    margin: 0 auto;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.receipt-preview .divider {
+    border-top: 1px dashed #ccc;
+    margin: 8px 0;
+}
+
+.receipt-preview .center { text-align: center; }
+.receipt-preview .bold { font-weight: bold; }
+.receipt-preview .right { text-align: right; }
+.receipt-preview h3 { font-size: 1rem; margin: 0 0 4px; }
+.receipt-preview p { margin: 2px 0; font-size: 0.7rem; }
+
+.switch-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
