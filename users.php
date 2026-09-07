@@ -28,7 +28,7 @@ if (isset($_GET['edit'])) {
 }
 
 // ==================== PAGINATION LOG AKTIVITAS ====================
-$logPerPage = 10; // ✅ 10 log per halaman
+$logPerPage = 5; // ✅ 5 log per halaman, scrollable container
 $logPage = max(1, intval($_GET['log_page'] ?? 1));
 $logOffset = ($logPage - 1) * $logPerPage;
 
@@ -251,59 +251,6 @@ $roleIcon = $role === 'admin' ? '🛡️' : '🛒';
             margin: 0 10px;
         }
 
-        .activity-item {
-            display: flex;
-            align-items: flex-start;
-            gap: 12px;
-            padding: 14px 0;
-            border-bottom: 1px solid #f3f4f6;
-        }
-
-        .activity-item:last-child {
-            border-bottom: none;
-        }
-
-        .activity-icon {
-            width: 38px;
-            height: 38px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1rem;
-            flex-shrink: 0;
-        }
-
-        .activity-icon.success {
-            background: #dcfce7;
-            color: #16a34a;
-        }
-
-        .activity-icon.failed {
-            background: #fee2e2;
-            color: #dc2626;
-        }
-
-        .activity-icon.info {
-            background: #dbeafe;
-            color: #2563eb;
-        }
-
-        .activity-icon.warning {
-            background: #fef3c7;
-            color: #d97706;
-        }
-
-        .activity-icon.dark {
-            background: #e5e7eb;
-            color: #111827;
-        }
-
-        .activity-icon.primary {
-            background: #e0e7ff;
-            color: #4f46e5;
-        }
-
         .password-history-item {
             background: #f9fafb;
             border-radius: 10px;
@@ -312,26 +259,76 @@ $roleIcon = $role === 'admin' ? '🛡️' : '🛒';
             border-left: 4px solid var(--primary);
         }
 
-        /* ✅ Log Pagination Mini */
-        .log-pagination {
+        /* ✅ COMPACT ACTIVITY ITEM */
+        .activity-item-compact {
             display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 4px;
-            padding: 16px 0 8px;
-            flex-wrap: wrap;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 10px 14px;
+            border-bottom: 1px solid #f3f4f6;
+            transition: background 0.15s;
         }
 
+        .activity-item-compact:last-child {
+            border-bottom: none;
+        }
+
+        .activity-item-compact:hover {
+            background: #f0f4ff !important;
+        }
+
+        .activity-icon-compact {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            flex-shrink: 0;
+        }
+
+        .activity-icon-compact.success {
+            background: #dcfce7;
+            color: #16a34a;
+        }
+
+        .activity-icon-compact.failed {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+
+        .activity-icon-compact.info {
+            background: #dbeafe;
+            color: #2563eb;
+        }
+
+        .activity-icon-compact.warning {
+            background: #fef3c7;
+            color: #d97706;
+        }
+
+        .activity-icon-compact.dark {
+            background: #e5e7eb;
+            color: #111827;
+        }
+
+        .activity-icon-compact.primary {
+            background: #e0e7ff;
+            color: #4f46e5;
+        }
+
+        /* ✅ COMPACT LOG PAGINATION */
         .log-page-btn {
-            min-width: 32px;
-            height: 32px;
-            padding: 0 8px;
-            border-radius: 8px;
+            min-width: 28px;
+            height: 28px;
+            padding: 0 6px;
+            border-radius: 6px;
             border: 1.5px solid #e5e7eb;
             background: white;
             color: #374151;
             font-weight: 600;
-            font-size: 0.8rem;
+            font-size: 0.72rem;
             cursor: pointer;
             display: inline-flex;
             align-items: center;
@@ -353,16 +350,28 @@ $roleIcon = $role === 'admin' ? '🛡️' : '🛒';
         }
 
         .log-page-btn.disabled {
-            opacity: 0.4;
+            opacity: 0.35;
             cursor: not-allowed;
             pointer-events: none;
         }
 
-        .log-info {
-            font-size: 0.75rem;
-            color: #6b7280;
-            text-align: center;
-            padding-top: 8px;
+        /* ✅ CUSTOM SCROLLBAR */
+        .log-scroll-container::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .log-scroll-container::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 3px;
+        }
+
+        .log-scroll-container::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+
+        .log-scroll-container::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
         }
     </style>
 </head>
@@ -798,36 +807,95 @@ $roleIcon = $role === 'admin' ? '🛡️' : '🛒';
                     </div>
                 </div>
 
-                <!-- ✅ LOG AKTIVITAS TERBARU DENGAN PAGINATION -->
+                <!-- ✅ LOG AKTIVITAS - COMPACT VERSION -->
                 <div class="card border-0 shadow-sm mt-3">
-                    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2 py-2 px-3">
                         <div>
-                            <span class="fw-bold">📋 Log Aktivitas Terbaru</span>
-                            <small class="text-muted d-block" style="font-size:0.75rem;">
-                                Diurutkan dari terbaru ke terlama · <?= $logPerPage ?> per halaman
+                            <span class="fw-bold" style="font-size:0.9rem;">📋 Log Aktivitas</span>
+                            <small class="text-muted ms-2" style="font-size:0.7rem;">
+                                Terbaru → Terlama · <?= $logPerPage ?> per halaman
                             </small>
                         </div>
                         <div class="d-flex align-items-center gap-2">
-                            <span class="badge bg-light text-dark border"><?= $totalLogs ?> total</span>
+                            <span class="badge bg-light text-dark border" style="font-size:0.7rem;"><?= $totalLogs ?> total</span>
                             <?php if ($logTotalPages > 1): ?>
-                                <span class="badge bg-primary px-2 py-1" style="font-size:0.7rem;">
+                                <span class="badge bg-primary" style="font-size:0.65rem;">
                                     Hal <?= $logPage ?>/<?= $logTotalPages ?>
                                 </span>
                             <?php endif; ?>
-                            <a href="history.php?tab=users" class="btn btn-sm btn-outline-primary px-3">
-                                Lihat Semua →
+                            <a href="history.php?tab=users" class="btn btn-sm btn-outline-primary px-2 py-1" style="font-size:0.7rem;">
+                                Semua →
                             </a>
                         </div>
                     </div>
-                    <div class="card-body p-3">
+
+                    <!-- ✅ PAGINATION DI ATAS (mudah dijangkau) -->
+                    <?php if ($logTotalPages > 1 && !empty($activityLogs)): ?>
+                        <?php
+                        $buildLogUrl = function($p) use ($editUser, $page) {
+                            $params = ['log_page' => $p];
+                            if ($page > 1) $params['page'] = $page;
+                            if ($editUser) $params['edit'] = $editUser['id'];
+                            return '?' . http_build_query($params);
+                        };
+                        ?>
+                        <div class="d-flex justify-content-center align-items-center gap-1 py-2 px-3 border-bottom" style="background:#f9fafb;">
+                            <?php if ($logPage > 1): ?>
+                                <a href="<?= $buildLogUrl(1) ?>" class="log-page-btn" title="Pertama">
+                                    <i class="bi bi-chevron-bar-left"></i>
+                                </a>
+                                <a href="<?= $buildLogUrl($logPage - 1) ?>" class="log-page-btn" title="Sebelumnya">
+                                    <i class="bi bi-chevron-left"></i>
+                                </a>
+                            <?php else: ?>
+                                <span class="log-page-btn disabled"><i class="bi bi-chevron-bar-left"></i></span>
+                                <span class="log-page-btn disabled"><i class="bi bi-chevron-left"></i></span>
+                            <?php endif; ?>
+
+                            <?php
+                            $logStartPage = max(1, $logPage - 2);
+                            $logEndPage = min($logTotalPages, $logPage + 2);
+                            
+                            if ($logStartPage > 1) {
+                                echo '<a href="' . $buildLogUrl(1) . '" class="log-page-btn">1</a>';
+                                if ($logStartPage > 2) echo '<span class="log-page-btn disabled" style="border:none;">…</span>';
+                            }
+                            
+                            for ($i = $logStartPage; $i <= $logEndPage; $i++):
+                            ?>
+                                <a href="<?= $buildLogUrl($i) ?>" 
+                                   class="log-page-btn <?= $i === $logPage ? 'active' : '' ?>">
+                                    <?= $i ?>
+                                </a>
+                            <?php endfor;
+                            
+                            if ($logEndPage < $logTotalPages - 1) echo '<span class="log-page-btn disabled" style="border:none;">…</span>';
+                            if ($logEndPage < $logTotalPages) echo '<a href="' . $buildLogUrl($logTotalPages) . '" class="log-page-btn">' . $logTotalPages . '</a>';
+                            ?>
+
+                            <?php if ($logPage < $logTotalPages): ?>
+                                <a href="<?= $buildLogUrl($logPage + 1) ?>" class="log-page-btn" title="Berikutnya">
+                                    <i class="bi bi-chevron-right"></i>
+                                </a>
+                                <a href="<?= $buildLogUrl($logTotalPages) ?>" class="log-page-btn" title="Terakhir">
+                                    <i class="bi bi-chevron-bar-right"></i>
+                                </a>
+                            <?php else: ?>
+                                <span class="log-page-btn disabled"><i class="bi bi-chevron-right"></i></span>
+                                <span class="log-page-btn disabled"><i class="bi bi-chevron-bar-right"></i></span>
+                            <?php endif; ?>
+                        </div>
+                    <?php endif; ?>
+
+                    <!-- ✅ CONTAINER SCROLLABLE -->
+                    <div class="card-body p-0 log-scroll-container" style="max-height: 420px; overflow-y: auto;">
                         <?php if (empty($activityLogs)): ?>
                             <div class="text-center py-4 text-muted">
-                                <div style="font-size:2.5rem;">📭</div>
-                                <small class="d-block mt-2">Belum ada aktivitas tercatat</small>
-                                <small class="text-muted">Aktivitas login dan perubahan data akan muncul di sini</small>
+                                <div style="font-size:2rem;">📭</div>
+                                <small class="d-block mt-1" style="font-size:0.75rem;">Belum ada aktivitas</small>
                             </div>
                         <?php else: ?>
-                            <?php foreach ($activityLogs as $log): ?>
+                            <?php foreach ($activityLogs as $index => $log): ?>
                                 <?php
                                 $action = $log['action'];
                                 $badgeClass = 'bg-secondary';
@@ -860,36 +928,34 @@ $roleIcon = $role === 'admin' ? '🛡️' : '🛒';
                                     $iconClass = 'primary';
                                     $icon = '⚙️';
                                 }
+                                
+                                // Alternating background untuk readability
+                                $bgStyle = ($index % 2 === 0) ? '' : 'style="background:#f9fafb;"';
                                 ?>
-                                <div class="activity-item">
-                                    <div class="activity-icon <?= $iconClass ?>"><?= $icon ?></div>
+                                <div class="activity-item-compact" <?= $bgStyle ?>>
+                                    <div class="activity-icon-compact <?= $iconClass ?>"><?= $icon ?></div>
                                     <div class="flex-grow-1" style="min-width:0;">
-                                        <div class="d-flex justify-content-between align-items-start gap-2 flex-wrap">
-                                            <span class="badge <?= $badgeClass ?>" style="font-size:0.65rem;">
+                                        <div class="d-flex justify-content-between align-items-center gap-1 mb-1">
+                                            <span class="badge <?= $badgeClass ?>" style="font-size:0.6rem; padding:2px 8px;">
                                                 <?= htmlspecialchars($label) ?>
                                             </span>
-                                            <small class="text-muted">
-                                                <?= date('d/m/Y H:i:s', strtotime($log['created_at'])) ?>
+                                            <small class="text-muted" style="font-size:0.65rem; white-space:nowrap;">
+                                                <?= date('d/m H:i', strtotime($log['created_at'])) ?>
                                             </small>
                                         </div>
 
-                                        <div class="small fw-semibold mt-2">
+                                        <div class="fw-semibold text-truncate" style="font-size:0.78rem; color:#374151;">
                                             <?= htmlspecialchars($log['description'] ?: $label) ?>
                                         </div>
 
-                                        <div class="d-flex gap-2 mt-2 flex-wrap">
+                                        <div class="d-flex gap-1 mt-1 flex-wrap">
                                             <?php if (!empty($log['full_name'])): ?>
-                                                <span class="badge bg-light text-dark border" style="font-size:0.65rem;">
-                                                    👤 Target: <?= htmlspecialchars($log['full_name']) ?>
-                                                </span>
-                                            <?php endif; ?>
-                                            <?php if (!empty($log['entity_type'])): ?>
-                                                <span class="badge bg-light text-dark border" style="font-size:0.65rem;">
-                                                    🧩 <?= htmlspecialchars($log['entity_type']) ?>
+                                                <span class="badge bg-light text-dark border" style="font-size:0.6rem; padding:1px 6px;">
+                                                    👤 <?= htmlspecialchars($log['full_name']) ?>
                                                 </span>
                                             <?php endif; ?>
                                             <?php if (!empty($log['ip_address'])): ?>
-                                                <span class="badge bg-light text-dark border" style="font-size:0.65rem;">
+                                                <span class="badge bg-light text-dark border" style="font-size:0.6rem; padding:1px 6px;">
                                                     🌐 <?= htmlspecialchars($log['ip_address']) ?>
                                                 </span>
                                             <?php endif; ?>
@@ -897,76 +963,18 @@ $roleIcon = $role === 'admin' ? '🛡️' : '🛒';
                                     </div>
                                 </div>
                             <?php endforeach; ?>
-
-                            <!-- ✅ PAGINATION LOG AKTIVITAS -->
-                            <?php if ($logTotalPages > 1): ?>
-                                <div class="log-pagination border-top mt-3 pt-3">
-                                    <?php
-                                    // Helper untuk build URL log pagination (preserve edit & page params)
-                                    $buildLogUrl = function($p) use ($editUser, $page) {
-                                        $params = ['log_page' => $p];
-                                        if ($page > 1) $params['page'] = $page;
-                                        if ($editUser) $params['edit'] = $editUser['id'];
-                                        return '?' . http_build_query($params);
-                                    };
-                                    ?>
-                                    
-                                    <?php if ($logPage > 1): ?>
-                                        <a href="<?= $buildLogUrl(1) ?>" class="log-page-btn" title="Halaman pertama">
-                                            <i class="bi bi-chevron-bar-left"></i>
-                                        </a>
-                                        <a href="<?= $buildLogUrl($logPage - 1) ?>" class="log-page-btn" title="Sebelumnya">
-                                            <i class="bi bi-chevron-left"></i>
-                                        </a>
-                                    <?php else: ?>
-                                        <span class="log-page-btn disabled"><i class="bi bi-chevron-bar-left"></i></span>
-                                        <span class="log-page-btn disabled"><i class="bi bi-chevron-left"></i></span>
-                                    <?php endif; ?>
-
-                                    <?php
-                                    $logStartPage = max(1, $logPage - 2);
-                                    $logEndPage = min($logTotalPages, $logPage + 2);
-                                    
-                                    if ($logStartPage > 1) {
-                                        echo '<a href="' . $buildLogUrl(1) . '" class="log-page-btn">1</a>';
-                                        if ($logStartPage > 2) echo '<span class="log-page-btn disabled">...</span>';
-                                    }
-                                    
-                                    for ($i = $logStartPage; $i <= $logEndPage; $i++):
-                                    ?>
-                                        <a href="<?= $buildLogUrl($i) ?>" 
-                                           class="log-page-btn <?= $i === $logPage ? 'active' : '' ?>">
-                                            <?= $i ?>
-                                        </a>
-                                    <?php endfor;
-                                    
-                                    if ($logEndPage < $logTotalPages - 1) {
-                                        echo '<span class="log-page-btn disabled">...</span>';
-                                    }
-                                    if ($logEndPage < $logTotalPages) {
-                                        echo '<a href="' . $buildLogUrl($logTotalPages) . '" class="log-page-btn">' . $logTotalPages . '</a>';
-                                    }
-                                    ?>
-
-                                    <?php if ($logPage < $logTotalPages): ?>
-                                        <a href="<?= $buildLogUrl($logPage + 1) ?>" class="log-page-btn" title="Berikutnya">
-                                            <i class="bi bi-chevron-right"></i>
-                                        </a>
-                                        <a href="<?= $buildLogUrl($logTotalPages) ?>" class="log-page-btn" title="Halaman terakhir">
-                                            <i class="bi bi-chevron-bar-right"></i>
-                                        </a>
-                                    <?php else: ?>
-                                        <span class="log-page-btn disabled"><i class="bi bi-chevron-right"></i></span>
-                                        <span class="log-page-btn disabled"><i class="bi bi-chevron-bar-right"></i></span>
-                                    <?php endif; ?>
-                                </div>
-                                
-                                <div class="log-info">
-                                    Menampilkan <?= (($logPage - 1) * $logPerPage) + 1 ?> - <?= min($logPage * $logPerPage, $totalLogs) ?> dari <?= $totalLogs ?> log
-                                </div>
-                            <?php endif; ?>
                         <?php endif; ?>
                     </div>
+
+                    <!-- ✅ FOOTER INFO -->
+                    <?php if (!empty($activityLogs) && $logTotalPages > 1): ?>
+                        <div class="card-footer py-2 px-3 text-center border-top" style="background:#f9fafb;">
+                            <small class="text-muted" style="font-size:0.7rem;">
+                                Menampilkan <?= (($logPage - 1) * $logPerPage) + 1 ?>-<?= min($logPage * $logPerPage, $totalLogs) ?> dari <?= $totalLogs ?> log
+                                · Scroll untuk lihat lebih banyak ↓
+                            </small>
+                        </div>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
